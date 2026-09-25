@@ -5,6 +5,8 @@ import * as drive from "./googleDrive";
 // - 接続時: Drive にファイルがあれば読み込み、なければ現在のデータで作成
 // - 変更時: 少し待ってから Drive へ保存（他端末で更新されていれば確認）
 // - 画面復帰時: 未保存の変更がなければ Drive の更新を取り込む
+// - ページ更新時: 保存済みトークンが有効なら自動で再接続。期限切れなら、次のクリック・キー操作で自動的に取り直す
+//   （ログイン用ポップアップはユーザー操作なしでは開けないため）
 
 export type DriveStatus = "unconfigured" | "disconnected" | "connecting" | "syncing" | "saved" | "reauth" | "error";
 
@@ -30,7 +32,7 @@ export function useDriveSync({ ready, snapshot, serialize, apply }: {
   const state = useRef<SyncState>({ dirty: false, connected: false });
   const prevSnapshot = useRef<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const busy = useRef(false);
+  const busy = useRef(false), connecting = useRef(false), autoTried = useRef(false);
   const serializeRef = useRef(serialize), applyRef = useRef(apply);
   serializeRef.current = serialize; applyRef.current = apply;
 
@@ -85,12 +87,16 @@ export function useDriveSync({ ready, snapshot, serialize, apply }: {
   }, [fail, push]);
 
   const connect = useCallback(async () => {
+    if (connecting.current) return;
+    connecting.current = true;
     setStatus("connecting"); setMessage("");
     try {
       await drive.signIn(state.current.connected ? "" : "consent");
       update({ connected: true });
+      void drive.rememberAccount();
       await pull();
     } catch (e) { setStatus(state.current.connected ? "reauth" : "disconnected"); setMessage(e instanceof Error ? e.message : String(e)); }
+    finally { connecting.current = false; }
   }, [pull]);
 
   const disconnect = useCallback(() => {
@@ -98,12 +104,25 @@ export function useDriveSync({ ready, snapshot, serialize, apply }: {
     update({ connected: false }); setStatus("disconnected"); setMessage(""); setFolderName("");
   }, []);
 
-  // 起動時: 以前接続していれば再接続待ち（ポップアップはユーザー操作が必要なため自動では開かない）
+  // 起動時: 以前接続していれば、保存済みトークンで自動再接続（期限切れなら再接続待ち）
   useEffect(() => {
     state.current = loadState();
     if (!drive.isConfigured()) setStatus("unconfigured");
-    else if (state.current.connected) setStatus("reauth");
+    else if (state.current.connected) { setStatus(drive.hasValidToken() ? "connecting" : "reauth"); void drive.loadGis().catch(() => undefined); }
   }, []);
+  useEffect(() => {
+    if (ready && state.current.connected && drive.hasValidToken()) void pull();
+  }, [ready, pull]);
+
+  // 再接続待ちのとき、ページ上の最初のクリック・キー操作で自動的にトークンを取り直す（1 ページにつき 1 回）
+  useEffect(() => {
+    if (status !== "reauth" || autoTried.current) return;
+    const onUser = () => { autoTried.current = true; remove(); void connect(); };
+    const remove = () => { document.removeEventListener("pointerdown", onUser, true); document.removeEventListener("keydown", onUser, true); };
+    document.addEventListener("pointerdown", onUser, true);
+    document.addEventListener("keydown", onUser, true);
+    return remove;
+  }, [status, connect]);
 
   // データ変更の検知と保存予約
   useEffect(() => {
@@ -130,5 +149,5 @@ export function useDriveSync({ ready, snapshot, serialize, apply }: {
     return () => window.removeEventListener("beforeunload", onUnload);
   }, []);
 
-  return { status, message, folderName, lastSynced, connect, disconnect, syncNow: () => (drive.hasValidToken() ? pull() : connect()) };
+  return { status, message, autoReconnect: status === "reauth" && !autoTried.current, folderName, lastSynced, connect, disconnect, syncNow: () => (drive.hasValidToken() ? pull() : connect()) };
 }

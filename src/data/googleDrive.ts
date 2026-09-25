@@ -1,5 +1,6 @@
 // Google Drive API v3 をブラウザから直接呼び出す薄いクライアント。
-// 認証は Google Identity Services（トークンモデル）で行い、アクセストークンはメモリ上にのみ保持する。
+// 認証は Google Identity Services（トークンモデル）で行う。ページ更新で接続が切れないよう、
+// アクセストークン（有効期限 1 時間）は期限付きで localStorage に保持し、接続解除・期限切れ・401 で破棄する。
 
 export const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 /** 保存先フォルダ ID（https://drive.google.com/drive/folders/<ID>） */
@@ -17,15 +18,34 @@ export class DriveAuthError extends Error {}
 interface TokenResponse { access_token?: string; expires_in?: number; error?: string; error_description?: string }
 interface TokenClient { requestAccessToken(o?: { prompt?: string }): void }
 interface GoogleOAuth2 {
-  initTokenClient(c: { client_id: string; scope: string; callback: (r: TokenResponse) => void; error_callback?: (e: { type: string }) => void }): TokenClient;
+  initTokenClient(c: { client_id: string; scope: string; hint?: string; callback: (r: TokenResponse) => void; error_callback?: (e: { type: string }) => void }): TokenClient;
   revoke(token: string, done?: () => void): void;
 }
 declare global { interface Window { google?: { accounts: { oauth2: GoogleOAuth2 } } } }
 
-let token: { value: string; expiresAt: number } | null = null;
+const TOKEN_KEY = "meeting-hub:drive-token", HINT_KEY = "meeting-hub:drive-account";
+type Token = { value: string; expiresAt: number };
+let token: Token | null = null;
 let gisLoading: Promise<void> | null = null;
 
-function loadGis(): Promise<void> {
+const storage = {
+  get: (k: string) => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* 保存できなくても動作は継続 */ } },
+  remove: (k: string) => { try { localStorage.removeItem(k); } catch { /* noop */ } },
+};
+function setToken(t: Token | null) {
+  token = t;
+  if (t) storage.set(TOKEN_KEY, JSON.stringify(t)); else storage.remove(TOKEN_KEY);
+}
+/** ページ更新後も有効期限内なら前回のトークンを再利用する */
+function currentToken(): Token | null {
+  if (!token && typeof window !== "undefined") {
+    try { token = JSON.parse(storage.get(TOKEN_KEY) ?? "null"); } catch { token = null; }
+  }
+  return token;
+}
+
+export function loadGis(): Promise<void> {
   if (window.google?.accounts?.oauth2) return Promise.resolve();
   gisLoading ??= new Promise((resolve, reject) => {
     const s = document.createElement("script");
@@ -39,7 +59,7 @@ function loadGis(): Promise<void> {
 }
 
 export const isConfigured = () => Boolean(GOOGLE_CLIENT_ID);
-export const hasValidToken = () => Boolean(token && token.expiresAt > Date.now() + 60_000);
+export const hasValidToken = () => { const t = currentToken(); return Boolean(t && t.expiresAt > Date.now() + 60_000); };
 
 /** Google アカウントでログインしてアクセストークンを取得する（ボタン操作など、ユーザー操作の中で呼ぶこと） */
 export async function signIn(prompt: "" | "consent" | "select_account" = ""): Promise<void> {
@@ -49,9 +69,11 @@ export async function signIn(prompt: "" | "consent" | "select_account" = ""): Pr
     const client = window.google!.accounts.oauth2.initTokenClient({
       client_id: GOOGLE_CLIENT_ID,
       scope: SCOPE,
+      // 前回のアカウントを指定し、アカウント選択を省略する
+      hint: storage.get(HINT_KEY) ?? undefined,
       callback: r => {
         if (r.error || !r.access_token) { reject(new Error(r.error_description || r.error || "ログインに失敗しました")); return; }
-        token = { value: r.access_token, expiresAt: Date.now() + (r.expires_in ?? 3600) * 1000 };
+        setToken({ value: r.access_token, expiresAt: Date.now() + (r.expires_in ?? 3600) * 1000 });
         resolve();
       },
       error_callback: e => reject(new Error(e.type === "popup_closed" ? "ログイン画面が閉じられました" : e.type === "popup_failed_to_open" ? "ポップアップがブロックされました" : e.type)),
@@ -61,14 +83,16 @@ export async function signIn(prompt: "" | "consent" | "select_account" = ""): Pr
 }
 
 export function signOut() {
-  if (token && window.google) window.google.accounts.oauth2.revoke(token.value);
-  token = null;
+  const t = currentToken();
+  if (t && window.google) window.google.accounts.oauth2.revoke(t.value);
+  setToken(null);
+  storage.remove(HINT_KEY);
 }
 
 async function api(url: string, init: RequestInit = {}): Promise<Response> {
   if (!hasValidToken()) throw new DriveAuthError("Google Drive への再接続が必要です");
   const res = await fetch(url, { ...init, headers: { ...init.headers, Authorization: `Bearer ${token!.value}` } });
-  if (res.status === 401) { token = null; throw new DriveAuthError("Google Drive への再接続が必要です"); }
+  if (res.status === 401) { setToken(null); throw new DriveAuthError("Google Drive への再接続が必要です"); }
   if (!res.ok) {
     let detail = "";
     try { detail = (await res.json())?.error?.message ?? ""; } catch { /* 本文なし */ }
@@ -83,6 +107,15 @@ export async function getFolderName(): Promise<string> {
   const f = await r.json();
   if (f.mimeType !== "application/vnd.google-apps.folder") throw new Error("指定された ID はフォルダではありません");
   return f.name;
+}
+
+/** 次回ログイン時のアカウント指定用に、接続中の Google アカウントを記録する */
+export async function rememberAccount(): Promise<void> {
+  try {
+    const r = await api(`${API}/about?fields=user(emailAddress)`);
+    const email = (await r.json())?.user?.emailAddress;
+    if (email) storage.set(HINT_KEY, email);
+  } catch { /* 取得できなくても同期には影響しない */ }
 }
 
 export async function findDataFile(): Promise<DriveFileMeta | null> {
