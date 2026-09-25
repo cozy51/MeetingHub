@@ -1,26 +1,25 @@
 import { useMemo, useState } from "react";
-import { CalendarPlus, Check, Plus } from "lucide-react";
-import { Category, Holiday, HolidayKind, Meeting, MeetingTask } from "@/types";
-import { compareMeetings, parseIsoDate, toIsoDate, weekdayLabel } from "@/lib/date";
-import MeetingCard from "./MeetingCard";
+import { CalendarPlus, Check } from "lucide-react";
+import { Holiday, HolidayKind, Meeting, MeetingTask } from "@/types";
+import { parseIsoDate, toIsoDate } from "@/lib/date";
 
 const WEEK = ["日", "月", "火", "水", "木", "金", "土"];
 const KIND_LABEL: Record<HolidayKind, string> = { self: "自分の休み", company: "会社の休み" };
 
 type Props = {
-  meetings: Meeting[]; categories: Category[]; holidays: Holiday[]; today: string;
-  setHolidays: (h: Holiday[]) => void; onOpen: (m: Meeting) => void; onAdd: (date: string) => void;
+  meetings: Meeting[]; holidays: Holiday[]; today: string; selectedDay: string;
+  setHolidays: (h: Holiday[]) => void; onOpen: (m: Meeting) => void; onSelectDay: (date: string) => void;
 };
 
-export default function CalendarView({ meetings, categories, holidays, today, setHolidays, onOpen, onAdd }: Props) {
-  const [selected, setSelected] = useState(today);
+/** 全ビュー共通で表示する、今月から3か月分のカレンダー。日付クリックで一覧をその日に絞り込む */
+export default function CalendarView({ meetings, holidays, today, selectedDay, setHolidays, onOpen, onSelectDay }: Props) {
   const [mode, setMode] = useState<HolidayKind | null>(null);
   const base = parseIsoDate(today);
   const months = [0, 1, 2].map(i => new Date(base.getFullYear(), base.getMonth() + i, 1));
 
-  const byDate = useMemo(() => {
-    const map = new Map<string, Meeting[]>();
-    [...meetings].sort(compareMeetings).forEach(m => map.set(m.date, [...(map.get(m.date) ?? []), m]));
+  const countByDate = useMemo(() => {
+    const map = new Map<string, number>();
+    meetings.forEach(m => map.set(m.date, (map.get(m.date) ?? 0) + 1));
     return map;
   }, [meetings]);
   const dueTasks = useMemo(() => meetings.flatMap(m => m.tasks.filter(t => t.dueDate && !t.completed).map(t => ({ m, t: t as MeetingTask & { dueDate: string } })))
@@ -29,16 +28,13 @@ export default function CalendarView({ meetings, categories, holidays, today, se
   const holidayOf = (date: string) => holidays.find(h => h.date === date)?.kind;
 
   const clickDay = (date: string) => {
-    if (!mode) { setSelected(date); return; }
+    if (!mode) { onSelectDay(date); return; }
     const current = holidayOf(date);
     const rest = holidays.filter(h => h.date !== date);
     setHolidays(current === mode ? rest : [...rest, { date, kind: mode }]);
   };
 
-  const dayMeetings = byDate.get(selected) ?? [];
-  const sel = parseIsoDate(selected);
-
-  return <>
+  return (
     <section className="calendar-board">
       <div className="calendar-head">
         <div><p className="eyebrow">今月から3か月</p><h2>Next 3 Months</h2></div>
@@ -65,10 +61,10 @@ export default function CalendarView({ meetings, categories, holidays, today, se
             <div className="cal-grid">
               {WEEK.map((w, i) => <b key={w} className={i === 0 ? "sun" : i === 6 ? "sat" : ""}>{w}</b>)}
               {cells.map(d => {
-                const iso = toIsoDate(d), out = d.getMonth() !== mo, count = byDate.get(iso)?.length ?? 0, hol = holidayOf(iso);
+                const iso = toIsoDate(d), out = d.getMonth() !== mo, count = countByDate.get(iso) ?? 0, hol = holidayOf(iso);
                 const cls = ["cal-day", out ? "out" : d.getDay() === 0 ? "sun" : d.getDay() === 6 ? "sat" : "", hol && !out ? `hol-${hol}` : "",
-                  !out && dueDates.has(iso) ? "due" : "", iso === today ? "today" : "", !out && !mode && iso === selected ? "selected" : ""].filter(Boolean).join(" ");
-                return <button key={iso} className={cls} disabled={out} onClick={() => clickDay(iso)} title={hol ? KIND_LABEL[hol] : undefined}>
+                  !out && dueDates.has(iso) ? "due" : "", iso === today ? "today" : "", !out && !mode && iso === selectedDay ? "selected" : ""].filter(Boolean).join(" ");
+                return <button key={iso} className={cls} disabled={out} onClick={() => clickDay(iso)} title={mode ? undefined : iso === selectedDay ? "絞り込みを解除" : "この日の会議で絞り込む"}>
                   {!out && count > 0 && <em>{count}件</em>}
                   <span>{d.getDate()}</span>
                   {iso === today && <small>今日</small>}
@@ -83,12 +79,5 @@ export default function CalendarView({ meetings, categories, holidays, today, se
         })}
       </div>
     </section>
-    <section className="list-section day-list">
-      <div className="list-head"><div><h2>{sel.getMonth() + 1}月{sel.getDate()}日 ({weekdayLabel(selected)}) の会議</h2><span>{dayMeetings.length}件</span></div><button className="sort" onClick={() => onAdd(selected)}><Plus size={15}/>この日に追加</button></div>
-      <div className="meeting-list">
-        {dayMeetings.map(m => <MeetingCard key={m.id} meeting={m} category={categories.find(c => c.id === m.category)} onClick={() => onOpen(m)}/>)}
-        {dayMeetings.length === 0 && <div className="empty small"><p>この日の会議はありません</p></div>}
-      </div>
-    </section>
-  </>;
+  );
 }

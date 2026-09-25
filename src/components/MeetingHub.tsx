@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, CalendarRange, CheckCircle2, ChevronRight, CircleAlert, Clock3, Download, FileText, FileUp, Filter, LayoutList, Menu, Plus, Search, Settings, Star, Tags, Upload, Users, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronRight, CircleAlert, Clock3, Download, FileText, FileUp, Filter, LayoutList, Menu, Plus, Search, Settings, Star, Tags, Upload, Users, X } from "lucide-react";
 import { repository } from "@/data/repository";
 import { Category, Filters, Holiday, Meeting, MeetingTask, View } from "@/types";
 import { eventToMeeting, parseIcs } from "@/data/ics";
@@ -13,10 +13,9 @@ import CalendarView from "./CalendarView";
 
 const blankFilters:Filters={category:"",place:"",from:"",to:"",important:false,hasTasks:false,incomplete:false};
 const nav=[
-  ["all","すべて",LayoutList],["today","今日",CalendarDays],["week","今週",Clock3],["calendar","カレンダー",CalendarRange],["tasks","自分のタスク",CheckCircle2],
+  ["all","すべて",LayoutList],["today","今日",CalendarDays],["week","今週",Clock3],["tasks","自分のタスク",CheckCircle2],
   ["incomplete","未完了タスク",CircleAlert],["important","重要",Star],["categories","分類",Tags],["settings","設定",Settings]
 ] as const;
-const blankMeeting=(date:string,category:string):Meeting=>{const now=new Date().toISOString();return {id:crypto.randomUUID(),date,place:"Teams",category,title:"",important:false,memo:"",tags:[],links:[],tasks:[],createdAt:now,updatedAt:now}};
 const localDate=(d=new Date())=>{const o=d.getTimezoneOffset(); return new Date(d.getTime()-o*60000).toISOString().slice(0,10)};
 
 export default function MeetingHub(){
@@ -31,7 +30,7 @@ export default function MeetingHub(){
   const today=localDate(); const weekStart=(()=>{const d=new Date(today+"T12:00:00");d.setDate(d.getDate()-((d.getDay()+6)%7));return localDate(d)})(); const weekEnd=(()=>{const d=new Date(weekStart+"T12:00:00");d.setDate(d.getDate()+6);return localDate(d)})();
   const visible=useMemo(()=>meetings.filter(m=>{
     const hay=[m.title,m.memo,m.category,...m.tags,...m.tasks.map(t=>t.title)].join(" ").toLowerCase();
-    const q=!query||hay.includes(query.toLowerCase()); const v=view==="all"||view==="calendar"||view==="categories"||view==="settings"||view==="tasks"||view==="today"&&m.date===today||view==="week"&&m.date>=weekStart&&m.date<=weekEnd||view==="important"&&m.important||view==="incomplete"&&m.tasks.some(t=>!t.completed);
+    const q=!query||hay.includes(query.toLowerCase()); const v=view==="all"||view==="categories"||view==="settings"||view==="tasks"||view==="today"&&m.date===today||view==="week"&&m.date>=weekStart&&m.date<=weekEnd||view==="important"&&m.important||view==="incomplete"&&m.tasks.some(t=>!t.completed);
     return q&&v&&(!filters.category||m.category===filters.category)&&(!filters.place||m.place===filters.place)&&(!filters.from||m.date>=filters.from)&&(!filters.to||m.date<=filters.to)&&(!filters.important||m.important)&&(!filters.hasTasks||m.tasks.length>0)&&(!filters.incomplete||m.tasks.some(t=>!t.completed));
   }).sort((a,b)=>compareMeetings(b,a)),[meetings,query,filters,view,today,weekStart,weekEnd]);
   const incomplete=meetings.flatMap(m=>m.tasks).filter(t=>!t.completed).length, weekly=meetings.filter(m=>m.date>=weekStart&&m.date<=weekEnd).length, important=meetings.filter(m=>m.important).length;
@@ -47,14 +46,17 @@ export default function MeetingHub(){
     if(events.length===1){const existing=meetings.find(m=>m.icsUid===events[0].uid);if(existing&&!confirm("この予定は登録済みです。もう一度追加しますか？")){setSelected(existing);return}setEditing(eventToMeeting(events[0],categories));return}
     if(!fresh.length){alert(`${events.length}件すべて登録済みです`);return}
     if(confirm(`${fresh.length}件の予定を追加します。${dup?`（登録済みの${dup}件は除外）`:""}`))setMeetings(x=>[...fresh.map(ev=>eventToMeeting(ev,categories)),...x]);};
+  const selectedDay=filters.from&&filters.from===filters.to?filters.from:"";
+  const selectDay=(date:string)=>{if(date===selectedDay){setFilters({...filters,from:"",to:""});return}setFilters({...filters,from:date,to:date});if(view==="tasks"||view==="settings")setView("all")};
   const activeFilters=Object.values(filters).filter(Boolean).length;
   return <div className="app-shell">
     <aside className={`sidebar ${sidebar?"open":""}`}><div className="brand"><span className="brand-mark"><Logo/></span><span>Meeting Hub</span><button className="mobile-close" onClick={()=>setSidebar(false)}><X/></button></div><nav>{nav.map(([id,label,Icon],i)=><button key={id} className={view===id?"active":""} onClick={()=>{setView(id);setSidebar(false)}}><Icon size={19}/><span>{label}</span>{id==="incomplete"&&incomplete>0&&<b>{incomplete}</b>}{i===2&&<span className="nav-rule"/>}</button>)}</nav><div className="sidebar-foot"><div className="avatar">YT</div><div><strong>ようこそ</strong><small>ローカルワークスペース</small></div></div></aside>
     <main><header><button className="menu-btn" onClick={()=>setSidebar(true)}><Menu/></button><div className="search"><Search size={19}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="会議、メモ、タスクを検索..."/><kbd>⌘ K</kbd></div><div className="header-actions"><button className={`button secondary ${filterOpen?"selected":""}`} onClick={()=>setFilterOpen(!filterOpen)}><Filter size={17}/>フィルター{activeFilters>0&&<i>{activeFilters}</i>}</button><button className="button secondary" onClick={()=>icsRef.current?.click()} title="Outlook・Teams の予定（.ics）から会議を追加"><FileUp size={17}/>ICSから追加</button><button className="button primary" onClick={()=>setEditing(null)}><Plus size={18}/>会議を追加</button></div></header>
-      <div className="content"><div className="page-title"><div><p className="eyebrow">WORKSPACE / MEETINGS</p><h1>{view==="tasks"?"自分のタスク":view==="today"?"今日の会議":view==="week"?"今週の会議":view==="calendar"?"カレンダー":view==="important"?"重要な会議":view==="incomplete"?"未完了タスクのある会議":"会議一覧"}</h1><p>{view==="tasks"?"すべての会議から、あなたのアクションを集約しています。":view==="calendar"?"今月から3か月分の会議・休み・タスク期限を確認できます。":"会議の記録、関連資料、次のアクションをひとつの場所に。"}</p></div><span className="date-chip"><CalendarDays size={15}/>{new Intl.DateTimeFormat("ja-JP",{month:"long",day:"numeric",weekday:"short"}).format(new Date())}</span></div>
+      <div className="content"><div className="page-title"><div><p className="eyebrow">WORKSPACE / MEETINGS</p><h1>{view==="tasks"?"自分のタスク":view==="today"?"今日の会議":view==="week"?"今週の会議":view==="important"?"重要な会議":view==="incomplete"?"未完了タスクのある会議":"会議一覧"}</h1><p>{view==="tasks"?"すべての会議から、あなたのアクションを集約しています。":"会議の記録、関連資料、次のアクションをひとつの場所に。"}</p></div><span className="date-chip"><CalendarDays size={15}/>{new Intl.DateTimeFormat("ja-JP",{month:"long",day:"numeric",weekday:"short"}).format(new Date())}</span></div>
       {filterOpen&&<FilterBar filters={filters} setFilters={setFilters} categories={categories}/>} 
       <section className="summaries"><Summary label="今週の会議" value={weekly} icon={<CalendarDays/>} tone="blue" onClick={()=>setView("week")}/><Summary label="未完了タスク" value={incomplete} icon={<CircleAlert/>} tone="amber" onClick={()=>setView("incomplete")}/><Summary label="重要" value={important} icon={<Star/>} tone="rose" onClick={()=>setView("important")}/></section>
-      {view==="calendar"?<CalendarView meetings={meetings} categories={categories} holidays={holidays} today={today} setHolidays={setHolidays} onOpen={setSelected} onAdd={date=>setEditing(blankMeeting(date,categories[0]?.id??"other"))}/>:view==="tasks"?<TaskView meetings={meetings} toggle={toggleTask} open={setSelected}/>:view==="settings"?<SettingsView meetings={meetings} categories={categories} setCategories={setCategories} download={download} fileRef={fileRef} csvRef={csvRef}/>:<section className="list-section"><div className="list-head"><div><h2>{view==="all"?"最近の会議":"該当する会議"}</h2><span>{visible.length}件</span></div><button className="sort">日付順 <ChevronRight size={15}/></button></div><div className="meeting-list">{visible.map(m=><MeetingCard key={m.id} meeting={m} category={categories.find(c=>c.id===m.category)} onClick={()=>setSelected(m)}/>)}{visible.length===0&&<div className="empty"><Search/><h3>会議が見つかりません</h3><p>検索語やフィルター条件を変更してください。</p></div>}</div></section>}
+      <CalendarView meetings={meetings} holidays={holidays} today={today} setHolidays={setHolidays} onOpen={setSelected} selectedDay={selectedDay} onSelectDay={selectDay}/>
+      {view==="tasks"?<TaskView meetings={meetings} toggle={toggleTask} open={setSelected}/>:view==="settings"?<SettingsView meetings={meetings} categories={categories} setCategories={setCategories} download={download} fileRef={fileRef} csvRef={csvRef}/>:<section className="list-section"><div className="list-head"><div><h2>{selectedDay?"選択した日の会議":view==="all"?"最近の会議":"該当する会議"}</h2><span>{visible.length}件</span>{selectedDay&&<button className="day-chip" onClick={()=>selectDay(selectedDay)} title="日付の絞り込みを解除">{Number(selectedDay.slice(5,7))}/{Number(selectedDay.slice(8))}<X/></button>}</div><button className="sort">日付順 <ChevronRight size={15}/></button></div><div className="meeting-list">{visible.map(m=><MeetingCard key={m.id} meeting={m} category={categories.find(c=>c.id===m.category)} onClick={()=>setSelected(m)}/>)}{visible.length===0&&<div className="empty"><Search/><h3>会議が見つかりません</h3><p>検索語やフィルター条件を変更してください。</p></div>}</div></section>}
       </div>
     </main>
     {selected&&<MeetingPanel meeting={meetings.find(m=>m.id===selected.id)??selected} category={categories.find(c=>c.id===selected.category)} onClose={()=>setSelected(null)} onEdit={m=>setEditing(m)} onDelete={remove} onToggleTask={tid=>toggleTask(selected.id,tid)}/>} 
