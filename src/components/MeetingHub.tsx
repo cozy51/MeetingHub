@@ -36,7 +36,7 @@ export default function MeetingHub(){
     const hay=[m.title,m.memo,m.category,...m.tags,...m.tasks.map(t=>t.title)].join(" ").toLowerCase();
     const q=!query||hay.includes(query.toLowerCase()); const v=view==="all"||view==="categories"||view==="settings"||view==="tasks"||view==="today"&&m.date===today||view==="week"&&m.date>=weekStart&&m.date<=weekEnd||view==="important"&&m.important||view==="incomplete"&&m.tasks.some(t=>!t.completed);
     return q&&v&&(!filters.category||m.category===filters.category)&&(!filters.place||m.place===filters.place)&&(!filters.from||m.date>=filters.from)&&(!filters.to||m.date<=filters.to)&&(!filters.important||m.important)&&(!filters.hasTasks||m.tasks.length>0)&&(!filters.incomplete||m.tasks.some(t=>!t.completed));
-  }).sort((a,b)=>compareMeetings(b,a)),[meetings,query,filters,view,today,weekStart,weekEnd]);
+  }).sort(compareMeetings),[meetings,query,filters,view,today,weekStart,weekEnd]);
   const incomplete=meetings.flatMap(m=>m.tasks).filter(t=>!t.completed).length, weekly=meetings.filter(m=>m.date>=weekStart&&m.date<=weekEnd).length, important=meetings.filter(m=>m.important).length;
   const save=(m:Meeting)=>{setMeetings(x=>x.some(i=>i.id===m.id)?x.map(i=>i.id===m.id?m:i):[m,...x]);setEditing(undefined);setSelected(m)};
   const remove=(id:string)=>{if(confirm("この会議を削除しますか？")){setMeetings(x=>x.filter(m=>m.id!==id));setSelected(null)}};
