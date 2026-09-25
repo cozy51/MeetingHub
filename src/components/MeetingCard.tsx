@@ -1,7 +1,7 @@
 import { CheckCircle2, ChevronRight, Circle, Clock3, FileText, MapPin, MessageSquare, Star } from "lucide-react";
 import { Category, Meeting } from "@/types";
 import { parseIsoDate, timeRange, weekdayLabel, weekdayOf } from "@/lib/date";
-const MAX_LINKS = 3;
+const MAX_LINKS = 4;
 export default function MeetingCard({meeting:m,category,onClick}:{meeting:Meeting;category?:Category;onClick:()=>void}){
  const done=m.tasks.filter(t=>t.completed).length, d=parseIsoDate(m.date), wd=weekdayOf(m.date), time=timeRange(m);
  // リンクをカード内に置くため、カード自体は button ではなく role="button" の div にする（button 内に a は置けない）
