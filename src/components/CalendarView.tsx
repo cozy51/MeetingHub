@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CalendarPlus, Check } from "lucide-react";
+import { CalendarPlus, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { Holiday, HolidayKind, Meeting, MeetingTask } from "@/types";
 import { parseIsoDate, toIsoDate } from "@/lib/date";
 
@@ -11,11 +11,21 @@ type Props = {
   setHolidays: (h: Holiday[]) => void; onOpen: (m: Meeting) => void; onSelectDay: (date: string) => void;
 };
 
-/** 全ビュー共通で表示する、今月から3か月分のカレンダー。日付クリックで一覧をその日に絞り込む */
+/** 全ビュー共通で表示する3か月分のカレンダー。前後の月へ制限なく移動でき、日付クリックで一覧をその日に絞り込む */
 export default function CalendarView({ meetings, holidays, today, selectedDay, setHolidays, onOpen, onSelectDay }: Props) {
   const [mode, setMode] = useState<HolidayKind | null>(null);
+  const [offset, setOffset] = useState(0);
   const base = parseIsoDate(today);
-  const months = [0, 1, 2].map(i => new Date(base.getFullYear(), base.getMonth() + i, 1));
+  const months = [0, 1, 2].map(i => new Date(base.getFullYear(), base.getMonth() + offset + i, 1));
+  const monthValue = `${months[0].getFullYear()}-${String(months[0].getMonth() + 1).padStart(2, "0")}`;
+  const jumpTo = (value: string) => {
+    const [y, m] = value.split("-").map(Number);
+    if (y && m) setOffset((y - base.getFullYear()) * 12 + (m - 1 - base.getMonth()));
+  };
+  const last = months[2];
+  const rangeLabel = months[0].getFullYear() === last.getFullYear()
+    ? `${months[0].getFullYear()}年${months[0].getMonth() + 1}月〜${last.getMonth() + 1}月`
+    : `${months[0].getFullYear()}年${months[0].getMonth() + 1}月〜${last.getFullYear()}年${last.getMonth() + 1}月`;
 
   const countByDate = useMemo(() => {
     const map = new Map<string, number>();
@@ -37,7 +47,13 @@ export default function CalendarView({ meetings, holidays, today, selectedDay, s
   return (
     <section className="calendar-board">
       <div className="calendar-head">
-        <div><p className="eyebrow">今月から3か月</p><h2>Next 3 Months</h2></div>
+        <div><p className="eyebrow">{offset === 0 ? "今月から3か月" : rangeLabel}</p><h2>{offset === 0 ? "Next 3 Months" : "3 Months"}</h2></div>
+        <div className="calendar-nav">
+          <button className="icon-btn" onClick={() => setOffset(o => o - 1)} title="前の月" aria-label="前の月"><ChevronLeft size={18}/></button>
+          <button className="button secondary" onClick={() => setOffset(0)} disabled={offset === 0}>今月</button>
+          <button className="icon-btn" onClick={() => setOffset(o => o + 1)} title="次の月" aria-label="次の月"><ChevronRight size={18}/></button>
+          <input type="month" value={monthValue} onChange={e => jumpTo(e.target.value)} aria-label="表示する月"/>
+        </div>
         <div className="calendar-tools">
           <span className="legend"><i className="lg-self"/>自分の休み</span>
           <span className="legend"><i className="lg-company"/>会社の休み</span>
