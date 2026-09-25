@@ -1,6 +1,6 @@
 # Meeting Hub
 
-Meeting Hub は、Teams 会議、1on1、定例会などの記録と、それに紐づく資料・メモ・自分のタスクを一か所で管理する Web アプリです。会議一覧、全文検索、複合フィルター、タスク集約、詳細・編集画面を備え、データはブラウザの `localStorage` に保存します。
+Meeting Hub は、Teams 会議、1on1、定例会などの記録と、それに紐づく資料・メモ・自分のタスクを一か所で管理する Web アプリです。会議一覧、全文検索、複合フィルター、タスク集約、詳細・編集画面を備え、データは Google Drive の指定フォルダに保存します（ブラウザの `localStorage` はオフライン用のキャッシュ）。
 
 ## 起動方法
 
@@ -25,11 +25,40 @@ npm run dev
 - Canva スプレッドシートから移行するための CSV インポート（年月日、場所、分類、議題、リンクメモ、メモ、自分タスク、Teamsリンク）
 - デスクトップ・モバイル対応
 
+## Google Drive への保存
+
+データはフォルダ ID で指定した Google Drive フォルダ内の `meeting-hub-data.json` に保存されます。既定の保存先は次のフォルダです。
+
+- https://drive.google.com/drive/folders/1PY_kbloM5WmS6EL12vL5cnT4_J79mubf
+
+### 初回セットアップ（管理者が 1 回だけ）
+
+1. [Google Cloud Console](https://console.cloud.google.com/) でプロジェクトを作成（または既存のものを選択）します。
+2. 「API とサービス」→「ライブラリ」で **Google Drive API** を有効にします。
+3. 「OAuth 同意画面」を構成します。社内の Google Workspace で使う場合はユーザーの種類を「内部」にします。スコープに `https://www.googleapis.com/auth/drive` を追加します。
+4. 「認証情報」→「認証情報を作成」→「OAuth クライアント ID」で、種類を **ウェブ アプリケーション** にし、「承認済みの JavaScript 生成元」にアプリの URL（例：`http://localhost:3000`、本番の URL）を登録します。
+5. 作成されたクライアント ID を `.env.local` に設定します（`.env.example` を参照）。
+
+```bash
+cp .env.example .env.local   # NEXT_PUBLIC_GOOGLE_CLIENT_ID を書き換える
+npm run dev
+```
+
+保存先フォルダを変える場合は `NEXT_PUBLIC_DRIVE_FOLDER_ID` にフォルダ ID（フォルダ URL の `folders/` 以降）を設定します。利用するユーザーには、そのフォルダの **編集者** 権限が必要です。
+
+### 同期の仕組み
+
+- 画面の「接続」ボタンから Google アカウントでログインすると、フォルダ内の `meeting-hub-data.json` を読み込みます。ファイルがなければ現在のデータで作成します。
+- 編集すると約 1 秒後に自動で Drive へ保存します。状態はサイドバー下部に表示されます。
+- 他の端末で更新されていた場合は、保存前に「Drive の内容を読み込む／この端末の内容で上書き」を確認します。
+- アクセストークンは 1 時間で失効します。その場合は「再接続」を押してください。未保存の変更はブラウザ内に残り、再接続後に保存されます。
+- Drive のファイルの版の履歴から、以前の状態に戻すこともできます。
+
 ## データ構造
 
 `Meeting` が基本情報を持ち、複数の `MeetingLink` と `MeetingTask` を配列として参照します。分類は `Category` として独立しており、表示名を後から追加できます。型定義は `src/types/index.ts` にあります。
 
-保存処理は `src/data/repository.ts` に集約し、UI コンポーネントが `localStorage` を直接操作しない構成です。初回のみ `src/data/seed.ts` のサンプルデータを投入します。
+保存処理は `src/data/repository.ts`（ブラウザ内キャッシュ）と `src/data/googleDrive.ts`・`src/data/useDriveSync.ts`（Google Drive 同期）に集約し、UI コンポーネントが `localStorage` を直接操作しない構成です。初回のみ `src/data/seed.ts` のサンプルデータを投入します。
 
 ## バックエンドへの移行
 
