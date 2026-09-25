@@ -62,11 +62,11 @@ export default function CalendarView({ meetings, holidays, today, selectedDay, s
               {WEEK.map((w, i) => <b key={w} className={i === 0 ? "sun" : i === 6 ? "sat" : ""}>{w}</b>)}
               {cells.map(d => {
                 const iso = toIsoDate(d), out = d.getMonth() !== mo, count = countByDate.get(iso) ?? 0, hol = holidayOf(iso);
-                const cls = ["cal-day", out ? "out" : d.getDay() === 0 ? "sun" : d.getDay() === 6 ? "sat" : "", hol && !out ? `hol-${hol}` : "",
+                const cls = ["cal-day", out ? "out" : d.getDay() === 0 ? "sun" : d.getDay() === 6 ? "sat" : "", hol && !out ? `hol-${hol}` : "", !out && count > 0 ? "has-mtg" : "",
                   !out && dueDates.has(iso) ? "due" : "", iso === today ? "today" : "", !out && !mode && iso === selectedDay ? "selected" : ""].filter(Boolean).join(" ");
                 return <button key={iso} className={cls} disabled={out} onClick={() => clickDay(iso)} title={mode ? undefined : iso === selectedDay ? "絞り込みを解除" : "この日の会議で絞り込む"}>
-                  {!out && count > 0 && <em>{count}件</em>}
                   <span>{d.getDate()}</span>
+                  {!out && count > 0 && <em>{count}件</em>}
                   {iso === today && <small>今日</small>}
                 </button>;
               })}
