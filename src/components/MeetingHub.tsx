@@ -5,6 +5,7 @@ import { repository } from "@/data/repository";
 import { Category, Filters, Holiday, Meeting, MeetingTask, View } from "@/types";
 import { eventToMeeting, isIcsFile, parseIcs } from "@/data/ics";
 import { compareMeetings } from "@/lib/date";
+import { findConflicts } from "@/lib/conflicts";
 import { DATA_FILE_NAME, DRIVE_FOLDER_ID } from "@/data/googleDrive";
 import { DriveStatus, useDriveSync } from "@/data/useDriveSync";
 import MeetingCard from "./MeetingCard";
@@ -73,11 +74,11 @@ export default function MeetingHub(){
       {filterOpen&&<FilterBar filters={filters} setFilters={setFilters} categories={categories}/>} 
       <section className="summaries"><Summary label="今週の会議" value={weekly} icon={<CalendarDays/>} tone="blue" onClick={()=>setView("week")}/><Summary label="未完了タスク" value={incomplete} icon={<CircleAlert/>} tone="amber" onClick={()=>setView("incomplete")}/><Summary label="重要" value={important} icon={<Star/>} tone="rose" onClick={()=>setView("important")}/></section>
       <CalendarView meetings={meetings} holidays={holidays} today={today} setHolidays={setHolidays} onOpen={setSelected} selectedDay={selectedDay} onSelectDay={selectDay}/>
-      {view==="tasks"?<TaskView meetings={meetings} toggle={toggleTask} open={setSelected}/>:view==="settings"?<SettingsView sync={sync} meetings={meetings} categories={categories} setCategories={setCategories} download={download} fileRef={fileRef} csvRef={csvRef}/>:<section className="list-section"><div className="list-head"><div><h2>{selectedDay?"選択した日の会議":view==="all"?"最近の会議":"該当する会議"}</h2><span>{visible.length}件</span>{selectedDay&&<button className="day-chip" onClick={()=>selectDay(selectedDay)} title="日付の絞り込みを解除">{Number(selectedDay.slice(5,7))}/{Number(selectedDay.slice(8))}<X/></button>}</div><button className="sort">日付順 <ChevronRight size={15}/></button></div><div className="meeting-list">{visible.map(m=><MeetingCard key={m.id} meeting={m} category={categories.find(c=>c.id===m.category)} onClick={()=>setSelected(m)}/>)}{visible.length===0&&<div className="empty"><Search/><h3>会議が見つかりません</h3><p>検索語やフィルター条件を変更してください。</p></div>}</div></section>}
+      {view==="tasks"?<TaskView meetings={meetings} toggle={toggleTask} open={setSelected}/>:view==="settings"?<SettingsView sync={sync} meetings={meetings} categories={categories} setCategories={setCategories} download={download} fileRef={fileRef} csvRef={csvRef}/>:<section className="list-section"><div className="list-head"><div><h2>{selectedDay?"選択した日の会議":view==="all"?"最近の会議":"該当する会議"}</h2><span>{visible.length}件</span>{selectedDay&&<button className="day-chip" onClick={()=>selectDay(selectedDay)} title="日付の絞り込みを解除">{Number(selectedDay.slice(5,7))}/{Number(selectedDay.slice(8))}<X/></button>}</div><button className="sort">日付順 <ChevronRight size={15}/></button></div><div className="meeting-list">{visible.map((m,i)=><MeetingCard key={m.id} meeting={m} dayStart={i>0&&visible[i-1].date!==m.date} conflicts={findConflicts(m,meetings)} category={categories.find(c=>c.id===m.category)} onClick={()=>setSelected(m)}/>)}{visible.length===0&&<div className="empty"><Search/><h3>会議が見つかりません</h3><p>検索語やフィルター条件を変更してください。</p></div>}</div></section>}
       </div>
     </main>
     {selected&&<MeetingPanel meeting={meetings.find(m=>m.id===selected.id)??selected} category={categories.find(c=>c.id===selected.category)} onClose={()=>setSelected(null)} onEdit={m=>setEditing(m)} onDelete={remove} onToggleTask={tid=>toggleTask(selected.id,tid)} onUpdate={m=>setMeetings(x=>x.map(i=>i.id===m.id?m:i))}/>} 
-    {editing!==undefined&&<MeetingForm meeting={editing} isNew={!editing||!meetings.some(m=>m.id===editing.id)} categories={categories} onClose={()=>setEditing(undefined)} onSave={save}/>} 
+    {editing!==undefined&&<MeetingForm meetings={meetings} meeting={editing} isNew={!editing||!meetings.some(m=>m.id===editing.id)} categories={categories} onClose={()=>setEditing(undefined)} onSave={save}/>} 
     <input hidden type="file" accept="application/json" ref={fileRef} onChange={importJson}/>
     <input hidden type="file" accept=".csv,text/csv" ref={csvRef} onChange={importCsv}/>
     <input hidden type="file" multiple accept=".ics,text/calendar" ref={icsRef} onChange={importIcs}/>
