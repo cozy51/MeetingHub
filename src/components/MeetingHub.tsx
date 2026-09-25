@@ -6,6 +6,7 @@ import { Category, Filters, Meeting, MeetingTask, View } from "@/types";
 import MeetingCard from "./MeetingCard";
 import MeetingPanel from "./MeetingPanel";
 import MeetingForm from "./MeetingForm";
+import Logo from "./Logo";
 
 const blankFilters:Filters={category:"",place:"",from:"",to:"",important:false,hasTasks:false,incomplete:false};
 const nav=[
@@ -37,7 +38,7 @@ export default function MeetingHub(){
   const importJson=async(e:React.ChangeEvent<HTMLInputElement>)=>{const f=e.target.files?.[0];if(!f)return;try{const d=repository.parseImport(await f.text());setMeetings(d.meetings);setCategories(d.categories);alert("データを復元しました") }catch{alert("有効なMeeting HubのJSONファイルを選択してください") }e.target.value=""};
   const activeFilters=Object.values(filters).filter(Boolean).length;
   return <div className="app-shell">
-    <aside className={`sidebar ${sidebar?"open":""}`}><div className="brand"><span className="brand-mark"><CalendarDays size={21}/></span><span>Meeting Hub</span><button className="mobile-close" onClick={()=>setSidebar(false)}><X/></button></div><nav>{nav.map(([id,label,Icon],i)=><button key={id} className={view===id?"active":""} onClick={()=>{setView(id);setSidebar(false)}}><Icon size={19}/><span>{label}</span>{id==="incomplete"&&incomplete>0&&<b>{incomplete}</b>}{i===2&&<span className="nav-rule"/>}</button>)}</nav><div className="sidebar-foot"><div className="avatar">YT</div><div><strong>ようこそ</strong><small>ローカルワークスペース</small></div></div></aside>
+    <aside className={`sidebar ${sidebar?"open":""}`}><div className="brand"><span className="brand-mark"><Logo/></span><span>Meeting Hub</span><button className="mobile-close" onClick={()=>setSidebar(false)}><X/></button></div><nav>{nav.map(([id,label,Icon],i)=><button key={id} className={view===id?"active":""} onClick={()=>{setView(id);setSidebar(false)}}><Icon size={19}/><span>{label}</span>{id==="incomplete"&&incomplete>0&&<b>{incomplete}</b>}{i===2&&<span className="nav-rule"/>}</button>)}</nav><div className="sidebar-foot"><div className="avatar">YT</div><div><strong>ようこそ</strong><small>ローカルワークスペース</small></div></div></aside>
     <main><header><button className="menu-btn" onClick={()=>setSidebar(true)}><Menu/></button><div className="search"><Search size={19}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="会議、メモ、タスクを検索..."/><kbd>⌘ K</kbd></div><div className="header-actions"><button className={`button secondary ${filterOpen?"selected":""}`} onClick={()=>setFilterOpen(!filterOpen)}><Filter size={17}/>フィルター{activeFilters>0&&<i>{activeFilters}</i>}</button><button className="button primary" onClick={()=>setEditing(null)}><Plus size={18}/>会議を追加</button></div></header>
       <div className="content"><div className="page-title"><div><p className="eyebrow">WORKSPACE / MEETINGS</p><h1>{view==="tasks"?"自分のタスク":view==="today"?"今日の会議":view==="week"?"今週の会議":view==="important"?"重要な会議":view==="incomplete"?"未完了タスクのある会議":"会議一覧"}</h1><p>{view==="tasks"?"すべての会議から、あなたのアクションを集約しています。":"会議の記録、関連資料、次のアクションをひとつの場所に。"}</p></div><span className="date-chip"><CalendarDays size={15}/>{new Intl.DateTimeFormat("ja-JP",{month:"long",day:"numeric",weekday:"short"}).format(new Date())}</span></div>
       {filterOpen&&<FilterBar filters={filters} setFilters={setFilters} categories={categories}/>} 
