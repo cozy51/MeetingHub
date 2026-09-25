@@ -1,4 +1,5 @@
-export type Place = "Teams" | "対面" | "その他";
+/** 場所（「Teams」「対面」「その他」のほか、会議室名などの自由入力） */
+export type Place = string;
 export type LinkType = "document" | "teams" | "other";
 export interface MeetingLink { id: string; title: string; url: string; type: LinkType }
 export interface MeetingTask { id: string; title: string; completed: boolean; dueDate?: string }
