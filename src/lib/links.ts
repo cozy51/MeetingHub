@@ -79,3 +79,18 @@ export function sortLinksForDisplay<T extends Pick<MeetingLink, "url">>(links: T
   return links.map((l, i) => ({ l, i, r: LINK_ORDER[detectLink(l.url).title] ?? DEFAULT_ORDER }))
     .sort((a, b) => a.r - b.r || a.i - b.i).map(x => x.l);
 }
+
+export interface LinkGroup { title: string; type: LinkType; items: MeetingLink[] }
+/** 表示順に並べたうえで、同じ名前のリンクを 1 つのグループにまとめる（グループ内は登録順） */
+export function groupLinksForDisplay(links: MeetingLink[]): LinkGroup[] {
+  const groups: LinkGroup[] = [];
+  for (const l of sortLinksForDisplay(links)) {
+    const g = groups.find(x => x.title === l.title);
+    if (g) g.items.push(l); else groups.push({ title: l.title, type: l.type, items: [l] });
+  }
+  return groups;
+}
+/** 同名リンクが複数あるときだけ「名前 (n)」と番号を付けた表示名を返す */
+export function numberedLinks(links: MeetingLink[]): { link: MeetingLink; label: string; index?: number }[] {
+  return groupLinksForDisplay(links).flatMap(g => g.items.map((link, i) => g.items.length > 1 ? { link, label: `${g.title} (${i + 1})`, index: i + 1 } : { link, label: g.title }));
+}
