@@ -55,7 +55,7 @@ export default function MeetingHub(){
     if(!fresh.length){alert(`${events.length}件すべて登録済みです`);return}
     if(confirm(`${fresh.length}件の予定を追加します。${dup?`（登録済みの${dup}件は除外）`:""}`))setMeetings(x=>[...fresh.map(ev=>eventToMeeting(ev,categories,categories.find(c=>c.id==="other")?.id??categories[0]?.id??"other")),...x]);};
   const selectedDay=filters.from&&filters.from===filters.to?filters.from:"";
-  const selectDay=(date:string)=>{if(date===selectedDay){setFilters({...filters,from:"",to:""});return}setFilters({...filters,from:date,to:date});if(view==="tasks"||view==="settings")setView("all")};
+  const selectDay=(date:string)=>{if(date===selectedDay){setFilters({...filters,from:"",to:""});return}setFilters({...filters,from:date,to:date});setView("all")};
   // 画面のどこにでも .ics をドラッグ＆ドロップして会議を追加（フォーム表示中はフォーム側のドロップ領域が受け付ける）
   const [dragging,setDragging]=useState(false),formOpen=useRef(false),importRef=useRef(importIcsFiles);
   formOpen.current=editing!==undefined;importRef.current=importIcsFiles;
