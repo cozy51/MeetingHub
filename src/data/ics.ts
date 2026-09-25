@@ -59,13 +59,17 @@ export function parseIcs(raw: string): IcsEvent[] {
   return events;
 }
 
+/** ドロップ・選択されたファイルが ICS かどうか（拡張子または MIME タイプで判定） */
+export const isIcsFile = (f: File) => /\.ics$/i.test(f.name) || f.type === "text/calendar";
+
 /** Teams 招待の定型文（罫線以降）を除いた本文 */
 const cleanDescription = (d: string) => d.split(/\n?_{10,}/)[0].trim();
 
-export function eventToMeeting(ev: IcsEvent, categories: Category[]): Meeting {
+/** 議題に分類名が含まれればその分類、なければ fallback（既定は未選択 ""） */
+export function eventToMeeting(ev: IcsEvent, categories: Category[], fallbackCategory = ""): Meeting {
   const now = new Date().toISOString();
   const byName = [...categories].sort((a, b) => b.name.length - a.name.length).find(c => ev.title.includes(c.name));
-  const category = byName?.id ?? categories.find(c => c.id === "other")?.id ?? categories[0]?.id ?? "other";
+  const category = byName?.id ?? fallbackCategory;
   const isTeams = /teams/i.test(ev.location) || Boolean(ev.teamsUrl);
   const place: Place = isTeams ? "Teams" : ev.location ? "対面" : "その他";
   const memo = [!isTeams && ev.location ? `場所：${ev.location}` : "", cleanDescription(ev.description)].filter(Boolean).join("\n");

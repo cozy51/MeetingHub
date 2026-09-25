@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, CheckCircle2, ChevronRight, CircleAlert, Clock3, Cloud, CloudOff, Download, FileText, FileUp, Filter, LayoutList, Menu, Plus, RefreshCw, Search, Settings, Star, Tags, Upload, Users, X } from "lucide-react";
 import { repository } from "@/data/repository";
 import { Category, Filters, Holiday, Meeting, MeetingTask, View } from "@/types";
-import { eventToMeeting, parseIcs } from "@/data/ics";
+import { eventToMeeting, isIcsFile, parseIcs } from "@/data/ics";
 import { compareMeetings } from "@/lib/date";
 import { DATA_FILE_NAME, DRIVE_FOLDER_ID } from "@/data/googleDrive";
 import { DriveStatus, useDriveSync } from "@/data/useDriveSync";
@@ -44,18 +44,31 @@ export default function MeetingHub(){
   const download=()=>{const blob=new Blob([repository.exportData(meetings,categories,holidays)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`meeting-hub-${today}.json`;a.click();URL.revokeObjectURL(a.href)};
   const importCsv=async(e:React.ChangeEvent<HTMLInputElement>)=>{const f=e.target.files?.[0];if(!f)return;try{const d=repository.parseCsv(await f.text(),categories);setMeetings(x=>[...d.meetings,...x]);setCategories(d.categories);alert(`${d.meetings.length}件を取り込みました`)}catch{alert("CSVを読み込めませんでした")}e.target.value=""};
   const importJson=async(e:React.ChangeEvent<HTMLInputElement>)=>{const f=e.target.files?.[0];if(!f)return;try{const d=repository.parseImport(await f.text());setMeetings(d.meetings);setCategories(d.categories);setHolidays(d.holidays);alert("データを復元しました") }catch{alert("有効なMeeting HubのJSONファイルを選択してください") }e.target.value=""};
-  const importIcs=async(e:React.ChangeEvent<HTMLInputElement>)=>{const f=e.target.files?.[0];e.target.value="";if(!f)return;
-    const events=parseIcs(await f.text());if(!events.length){alert("ICSファイルに予定が見つかりませんでした");return}
+  const importIcs=async(e:React.ChangeEvent<HTMLInputElement>)=>{const files=[...(e.target.files??[])];e.target.value="";if(files.length)await importIcsFiles(files)};
+  const importIcsFiles=async(files:File[])=>{
+    const ics=files.filter(isIcsFile);if(!ics.length){alert("ICS ファイル（.ics）をドロップしてください");return}
+    const events=(await Promise.all(ics.map(f=>f.text()))).flatMap(parseIcs);if(!events.length){alert("ICSファイルに予定が見つかりませんでした");return}
     const fresh=events.filter(ev=>!meetings.some(m=>m.icsUid===ev.uid)),dup=events.length-fresh.length;
     if(events.length===1){const existing=meetings.find(m=>m.icsUid===events[0].uid);if(existing&&!confirm("この予定は登録済みです。もう一度追加しますか？")){setSelected(existing);return}setEditing(eventToMeeting(events[0],categories));return}
     if(!fresh.length){alert(`${events.length}件すべて登録済みです`);return}
-    if(confirm(`${fresh.length}件の予定を追加します。${dup?`（登録済みの${dup}件は除外）`:""}`))setMeetings(x=>[...fresh.map(ev=>eventToMeeting(ev,categories)),...x]);};
+    if(confirm(`${fresh.length}件の予定を追加します。${dup?`（登録済みの${dup}件は除外）`:""}`))setMeetings(x=>[...fresh.map(ev=>eventToMeeting(ev,categories,categories.find(c=>c.id==="other")?.id??categories[0]?.id??"other")),...x]);};
   const selectedDay=filters.from&&filters.from===filters.to?filters.from:"";
   const selectDay=(date:string)=>{if(date===selectedDay){setFilters({...filters,from:"",to:""});return}setFilters({...filters,from:date,to:date});if(view==="tasks"||view==="settings")setView("all")};
+  // 画面のどこにでも .ics をドラッグ＆ドロップして会議を追加（フォーム表示中はフォーム側のドロップ領域が受け付ける）
+  const [dragging,setDragging]=useState(false),formOpen=useRef(false),importRef=useRef(importIcsFiles);
+  formOpen.current=editing!==undefined;importRef.current=importIcsFiles;
+  useEffect(()=>{
+    const hasFiles=(e:DragEvent)=>Boolean(e.dataTransfer?.types.includes("Files"));
+    const over=(e:DragEvent)=>{if(!hasFiles(e))return;e.preventDefault();if(formOpen.current){if(e.dataTransfer)e.dataTransfer.dropEffect="none";return}if(e.dataTransfer)e.dataTransfer.dropEffect="copy";setDragging(true)};
+    const leave=(e:DragEvent)=>{if(!e.relatedTarget)setDragging(false)};
+    const drop=(e:DragEvent)=>{if(!hasFiles(e))return;e.preventDefault();setDragging(false);if(!formOpen.current)void importRef.current([...(e.dataTransfer?.files??[])])};
+    window.addEventListener("dragover",over);window.addEventListener("dragleave",leave);window.addEventListener("drop",drop);
+    return()=>{window.removeEventListener("dragover",over);window.removeEventListener("dragleave",leave);window.removeEventListener("drop",drop)};
+  },[]);
   const activeFilters=Object.values(filters).filter(Boolean).length;
   return <div className="app-shell">
     <aside className={`sidebar ${sidebar?"open":""}`}><div className="brand"><span className="brand-mark"><Logo/></span><span>Meeting Hub</span><button className="mobile-close" onClick={()=>setSidebar(false)}><X/></button></div><nav>{nav.map(([id,label,Icon],i)=><button key={id} className={view===id?"active":""} onClick={()=>{setView(id);setSidebar(false)}}><Icon size={19}/><span>{label}</span>{id==="incomplete"&&incomplete>0&&<b>{incomplete}</b>}{i===2&&<span className="nav-rule"/>}</button>)}</nav><div className="sidebar-foot"><DriveBadge status={sync.status} onClick={()=>{setView("settings");setSidebar(false)}}/></div></aside>
-    <main><header><button className="menu-btn" onClick={()=>setSidebar(true)}><Menu/></button><div className="search"><Search size={19}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="会議、メモ、タスクを検索..."/><kbd>⌘ K</kbd></div><div className="header-actions"><button className={`button secondary ${filterOpen?"selected":""}`} onClick={()=>setFilterOpen(!filterOpen)}><Filter size={17}/>フィルター{activeFilters>0&&<i>{activeFilters}</i>}</button><button className="button secondary" onClick={()=>icsRef.current?.click()} title="Outlook・Teams の予定（.ics）から会議を追加"><FileUp size={17}/>ICSから追加</button><button className="button primary" onClick={()=>setEditing(null)}><Plus size={18}/>会議を追加</button></div></header>
+    <main><header><button className="menu-btn" onClick={()=>setSidebar(true)}><Menu/></button><div className="search"><Search size={19}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="会議、メモ、タスクを検索..."/><kbd>⌘ K</kbd></div><div className="header-actions"><button className={`button secondary ${filterOpen?"selected":""}`} onClick={()=>setFilterOpen(!filterOpen)}><Filter size={17}/>フィルター{activeFilters>0&&<i>{activeFilters}</i>}</button><button className="button secondary" onClick={()=>icsRef.current?.click()} title="Outlook・Teams の予定（.ics）から会議を追加。画面へのドラッグ＆ドロップでも追加できます"><FileUp size={17}/>ICSから追加</button><button className="button primary" onClick={()=>setEditing(null)}><Plus size={18}/>会議を追加</button></div></header>
       <div className="content">{!["saved","syncing","connecting"].includes(sync.status)&&<DriveNotice status={sync.status} message={sync.message} autoReconnect={sync.autoReconnect} onConnect={sync.connect}/>}<div className="page-title"><div><p className="eyebrow">WORKSPACE / MEETINGS</p><h1>{view==="tasks"?"自分のタスク":view==="today"?"今日の会議":view==="week"?"今週の会議":view==="important"?"重要な会議":view==="incomplete"?"未完了タスクのある会議":"会議一覧"}</h1><p>{view==="tasks"?"すべての会議から、あなたのアクションを集約しています。":"会議の記録、関連資料、次のアクションをひとつの場所に。"}</p></div><span className="date-chip"><CalendarDays size={15}/>{new Intl.DateTimeFormat("ja-JP",{month:"long",day:"numeric",weekday:"short"}).format(new Date())}</span></div>
       {filterOpen&&<FilterBar filters={filters} setFilters={setFilters} categories={categories}/>} 
       <section className="summaries"><Summary label="今週の会議" value={weekly} icon={<CalendarDays/>} tone="blue" onClick={()=>setView("week")}/><Summary label="未完了タスク" value={incomplete} icon={<CircleAlert/>} tone="amber" onClick={()=>setView("incomplete")}/><Summary label="重要" value={important} icon={<Star/>} tone="rose" onClick={()=>setView("important")}/></section>
@@ -67,7 +80,8 @@ export default function MeetingHub(){
     {editing!==undefined&&<MeetingForm meeting={editing} isNew={!editing||!meetings.some(m=>m.id===editing.id)} categories={categories} onClose={()=>setEditing(undefined)} onSave={save}/>} 
     <input hidden type="file" accept="application/json" ref={fileRef} onChange={importJson}/>
     <input hidden type="file" accept=".csv,text/csv" ref={csvRef} onChange={importCsv}/>
-    <input hidden type="file" accept=".ics,text/calendar" ref={icsRef} onChange={importIcs}/>
+    <input hidden type="file" multiple accept=".ics,text/calendar" ref={icsRef} onChange={importIcs}/>
+    {dragging&&<div className="drop-overlay"><div><FileUp size={40}/><strong>ICS ファイルをドロップして会議を追加</strong><small>Outlook・Teams の予定（.ics）。複数ファイルもまとめて追加できます</small></div></div>}
   </div>
 }
 function Summary({label,value,icon,tone,onClick}:{label:string;value:number;icon:React.ReactNode;tone:string;onClick:()=>void}){return <button className="summary" onClick={onClick}><span className={`summary-icon ${tone}`}>{icon}</span><span><small>{label}</small><strong>{value}</strong></span><ChevronRight/></button>}
