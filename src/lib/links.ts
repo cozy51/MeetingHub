@@ -70,3 +70,12 @@ export async function readClipboardText(): Promise<string> {
 export function linksFromText(text: string, existing: MeetingLink[]): MeetingLink[] {
   return extractUrls(text).filter(url => !existing.some(l => l.url === url)).map(url => ({ id: crypto.randomUUID(), url, ...detectLink(url) }));
 }
+
+// 表示順：Teams参加 → CanvaDoc → その他（登録順）→ Notta → Teamsまとめ
+const LINK_ORDER: Record<string, number> = { "Teams参加": 0, "CanvaDoc": 1, "Notta": 3, "Teamsまとめ": 4 };
+const DEFAULT_ORDER = 2;
+/** リンク名ではなく URL の種類で並べる（名前を変えても順序は保たれる）。元の配列は変更しない */
+export function sortLinksForDisplay<T extends Pick<MeetingLink, "url">>(links: T[]): T[] {
+  return links.map((l, i) => ({ l, i, r: LINK_ORDER[detectLink(l.url).title] ?? DEFAULT_ORDER }))
+    .sort((a, b) => a.r - b.r || a.i - b.i).map(x => x.l);
+}
