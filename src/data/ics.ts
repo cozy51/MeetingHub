@@ -1,4 +1,5 @@
 import { Category, Meeting, Place } from "@/types";
+import { detectLink } from "@/lib/links";
 
 export interface IcsEvent { uid: string; title: string; date: string; startTime?: string; endTime?: string; location: string; description: string; teamsUrl?: string }
 
@@ -76,7 +77,7 @@ export function eventToMeeting(ev: IcsEvent, categories: Category[], fallbackCat
   return {
     id: crypto.randomUUID(), date: ev.date, startTime: ev.startTime, endTime: ev.endTime, place, category,
     title: ev.title || "無題の会議", important: false, memo, tags: [],
-    links: ev.teamsUrl ? [{ id: crypto.randomUUID(), title: "Teams 会議に参加", url: ev.teamsUrl, type: "teams" }] : [],
+    links: ev.teamsUrl ? [{ id: crypto.randomUUID(), title: detectLink(ev.teamsUrl).title, url: ev.teamsUrl, type: "teams" }] : [],
     tasks: [], icsUid: ev.uid, createdAt: now, updatedAt: now,
   };
 }
