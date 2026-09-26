@@ -90,7 +90,7 @@ export default function CalendarView({ meetings, holidays, today, selectedDay, s
           const prefix = `${y}-${String(mo + 1).padStart(2, "0")}`;
           const tasks = dueTasks.filter(x => x.t.dueDate.startsWith(prefix));
           return <div className="month-card" key={prefix}>
-            <h3>{y}年{mo + 1}月{prefix === today.slice(0, 7) && <span>今月</span>}</h3>
+            <h3><small>{y}年</small>{mo + 1}月{prefix === today.slice(0, 7) && <span>今月</span>}</h3>
             <div className="cal-grid">
               {WEEK.map((w, i) => <b key={w} className={i === 0 ? "sun" : i === 6 ? "sat" : ""}>{w}</b>)}
               {cells.map(d => {

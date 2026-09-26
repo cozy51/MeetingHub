@@ -81,7 +81,7 @@ export function sortLinksForDisplay<T extends Pick<MeetingLink, "url">>(links: T
 }
 
 // カード上のリンクバッジでは長い名前を短縮して表示する（詳細パネルでは正式名のまま）
-const BADGE_LABEL: Record<string, string> = { "Googleドライブ": "G-Drv" };
+const BADGE_LABEL: Record<string, string> = { "Googleドライブ": "G-Drive" };
 export const badgeLabel = (title: string) => BADGE_LABEL[title] ?? title;
 
 export interface LinkGroup { title: string; type: LinkType; items: MeetingLink[] }
