@@ -40,7 +40,9 @@ export default function MeetingHub(){
     return q&&v&&(!filters.category||m.category===filters.category)&&(!filters.place||m.place===filters.place)&&(!filters.from||m.date>=filters.from)&&(!filters.to||m.date<=filters.to)&&(!filters.important||m.important)&&(!filters.hasTasks||m.tasks.length>0)&&(!filters.incomplete||m.tasks.some(t=>!t.completed));
   }).sort(compareMeetings),[meetings,query,filters,view,today,yesterday,tomorrow,weekStart,weekEnd]);
   const incomplete=meetings.flatMap(m=>m.tasks).filter(t=>!t.completed).length, weekly=meetings.filter(m=>m.date>=weekStart&&m.date<=weekEnd).length, important=meetings.filter(m=>m.important).length;
-  const save=(m:Meeting)=>{setMeetings(x=>x.some(i=>i.id===m.id)?x.map(i=>i.id===m.id?m:i):[m,...x]);setEditing(undefined);setSelected(m)};
+  const save=(m:Meeting)=>{const isNew=!meetings.some(i=>i.id===m.id);setMeetings(x=>x.some(i=>i.id===m.id)?x.map(i=>i.id===m.id?m:i):[m,...x]);setEditing(undefined);setSelected(m);
+    // ICS から追加した予定は、背景の一覧・カレンダーもその日に合わせて、詳細パネルと見比べられるようにする
+    if(isNew&&m.icsUid){setFilters({...filters,from:m.date,to:m.date});setView("all")}};
   const remove=(id:string)=>{if(confirm("この会議を削除しますか？")){setMeetings(x=>x.filter(m=>m.id!==id));setSelected(null)}};
   const toggleTask=(mid:string,tid:string)=>setMeetings(x=>x.map(m=>m.id===mid?{...m,tasks:m.tasks.map(t=>t.id===tid?{...t,completed:!t.completed}:t),updatedAt:new Date().toISOString()}:m));
   const download=()=>{const blob=new Blob([repository.exportData(meetings,categories,holidays)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`meeting-hub-${today}.json`;a.click();URL.revokeObjectURL(a.href)};

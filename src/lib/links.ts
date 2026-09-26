@@ -71,14 +71,18 @@ export function linksFromText(text: string, existing: MeetingLink[]): MeetingLin
   return extractUrls(text).filter(url => !existing.some(l => l.url === url)).map(url => ({ id: crypto.randomUUID(), url, ...detectLink(url) }));
 }
 
-// 表示順：Teams参加 → CanvaDoc → その他（登録順）→ Notta → Teamsまとめ
-const LINK_ORDER: Record<string, number> = { "Teams参加": 0, "CanvaDoc": 1, "Notta": 3, "Teamsまとめ": 4 };
+// 表示順：Teams参加 → CanvaDoc → その他（登録順）→ Notta → Googleドライブ → Teamsまとめ
+const LINK_ORDER: Record<string, number> = { "Teams参加": 0, "CanvaDoc": 1, "Notta": 3, "Googleドライブ": 4, "Teamsまとめ": 5 };
 const DEFAULT_ORDER = 2;
 /** リンク名ではなく URL の種類で並べる（名前を変えても順序は保たれる）。元の配列は変更しない */
 export function sortLinksForDisplay<T extends Pick<MeetingLink, "url">>(links: T[]): T[] {
   return links.map((l, i) => ({ l, i, r: LINK_ORDER[detectLink(l.url).title] ?? DEFAULT_ORDER }))
     .sort((a, b) => a.r - b.r || a.i - b.i).map(x => x.l);
 }
+
+// カード上のリンクバッジでは長い名前を短縮して表示する（詳細パネルでは正式名のまま）
+const BADGE_LABEL: Record<string, string> = { "Googleドライブ": "G-Drv" };
+export const badgeLabel = (title: string) => BADGE_LABEL[title] ?? title;
 
 export interface LinkGroup { title: string; type: LinkType; items: MeetingLink[] }
 /** 表示順に並べたうえで、同じ名前のリンクを 1 つのグループにまとめる（グループ内は登録順） */

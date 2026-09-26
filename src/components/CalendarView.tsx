@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarPlus, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { Holiday, HolidayKind, Meeting, MeetingTask } from "@/types";
 import { compareMeetings, parseIsoDate, timeRange, toIsoDate, weekdayLabel } from "@/lib/date";
@@ -19,6 +19,12 @@ export default function CalendarView({ meetings, holidays, today, selectedDay, s
   // 中央に表示する月の、今月からのずれ（0 = 今月が中央）
   const [offset, setOffset] = useState(0);
   const base = parseIsoDate(today);
+  // 選択中の日付が表示範囲外なら、その月が中央に来るように移動する
+  useEffect(() => {
+    if (!selectedDay) return;
+    const d = parseIsoDate(selectedDay), diff = (d.getFullYear() - base.getFullYear()) * 12 + d.getMonth() - base.getMonth();
+    setOffset(o => Math.abs(diff - o) <= 1 ? o : diff);
+  }, [selectedDay]); // eslint-disable-line react-hooks/exhaustive-deps
   const months = [-1, 0, 1].map(i => new Date(base.getFullYear(), base.getMonth() + offset + i, 1));
   const monthValue = `${months[1].getFullYear()}-${String(months[1].getMonth() + 1).padStart(2, "0")}`;
   const jumpTo = (value: string) => {
