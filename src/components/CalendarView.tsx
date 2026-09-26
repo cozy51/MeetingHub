@@ -11,13 +11,14 @@ type Props = {
   setHolidays: (h: Holiday[]) => void; onOpen: (m: Meeting) => void; onSelectDay: (date: string) => void;
 };
 
-/** 全ビュー共通で表示する3か月分のカレンダー。前後の月へ制限なく移動でき、日付クリックで一覧をその日に絞り込む */
+/** 全ビュー共通で表示する3か月分のカレンダー（中央が基準月、初期表示は今月）。前後の月へ制限なく移動でき、日付クリックで一覧をその日に絞り込む */
 export default function CalendarView({ meetings, holidays, today, selectedDay, setHolidays, onOpen, onSelectDay }: Props) {
   const [mode, setMode] = useState<HolidayKind | null>(null);
+  // 中央に表示する月の、今月からのずれ（0 = 今月が中央）
   const [offset, setOffset] = useState(0);
   const base = parseIsoDate(today);
-  const months = [0, 1, 2].map(i => new Date(base.getFullYear(), base.getMonth() + offset + i, 1));
-  const monthValue = `${months[0].getFullYear()}-${String(months[0].getMonth() + 1).padStart(2, "0")}`;
+  const months = [-1, 0, 1].map(i => new Date(base.getFullYear(), base.getMonth() + offset + i, 1));
+  const monthValue = `${months[1].getFullYear()}-${String(months[1].getMonth() + 1).padStart(2, "0")}`;
   const jumpTo = (value: string) => {
     const [y, m] = value.split("-").map(Number);
     if (y && m) setOffset((y - base.getFullYear()) * 12 + (m - 1 - base.getMonth()));
@@ -47,7 +48,7 @@ export default function CalendarView({ meetings, holidays, today, selectedDay, s
   return (
     <section className="calendar-board">
       <div className="calendar-head">
-        <div><p className="eyebrow">{offset === 0 ? "今月から3か月" : rangeLabel}</p><h2>{offset === 0 ? "Next 3 Months" : "3 Months"}</h2></div>
+        <div><p className="eyebrow">{rangeLabel}</p><h2>3-Month View</h2></div>
         <div className="calendar-nav">
           <button className="icon-btn" onClick={() => setOffset(o => o - 1)} title="前の月" aria-label="前の月"><ChevronLeft size={18}/></button>
           <button className="button secondary" onClick={() => setOffset(0)} disabled={offset === 0}>今月</button>
