@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import { CalendarPlus, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { Holiday, HolidayKind, Meeting, MeetingTask } from "@/types";
-import { parseIsoDate, toIsoDate } from "@/lib/date";
+import { compareMeetings, parseIsoDate, timeRange, toIsoDate, weekdayLabel } from "@/lib/date";
 
+/** 会議数を示す●の最大表示数（超えた分は「+」で示す） */
+const MAX_DOTS = 5;
 const WEEK = ["日", "月", "火", "水", "木", "金", "土"];
 const KIND_LABEL: Record<HolidayKind, string> = { self: "自分の休み", company: "会社の休み" };
 
@@ -28,11 +30,19 @@ export default function CalendarView({ meetings, holidays, today, selectedDay, s
     ? `${months[0].getFullYear()}年${months[0].getMonth() + 1}月〜${last.getMonth() + 1}月`
     : `${months[0].getFullYear()}年${months[0].getMonth() + 1}月〜${last.getFullYear()}年${last.getMonth() + 1}月`;
 
-  const countByDate = useMemo(() => {
-    const map = new Map<string, number>();
-    meetings.forEach(m => map.set(m.date, (map.get(m.date) ?? 0) + 1));
+  const meetingsByDate = useMemo(() => {
+    const map = new Map<string, Meeting[]>();
+    [...meetings].sort(compareMeetings).forEach(m => map.set(m.date, [...(map.get(m.date) ?? []), m]));
     return map;
   }, [meetings]);
+  /** 日付セルのツールチップ：その日の会議の時刻と名称を一覧にする */
+  const dayTitle = (iso: string, list: Meeting[]) => {
+    if (mode) return undefined;
+    if (iso === selectedDay) return "絞り込みを解除";
+    if (!list.length) return "この日の会議で絞り込む";
+    const head = `${Number(iso.slice(5, 7))}/${Number(iso.slice(8))}（${weekdayLabel(iso)}） ${list.length}件`;
+    return [head, ...list.map(m => `・${timeRange(m) ? `${timeRange(m)} ` : ""}${m.title}`), "", "クリックでこの日の会議に絞り込み"].join("\n");
+  };
   const dueTasks = useMemo(() => meetings.flatMap(m => m.tasks.filter(t => t.dueDate && !t.completed).map(t => ({ m, t: t as MeetingTask & { dueDate: string } })))
     .sort((a, b) => a.t.dueDate.localeCompare(b.t.dueDate)), [meetings]);
   const dueDates = new Set(dueTasks.map(x => x.t.dueDate));
@@ -78,12 +88,12 @@ export default function CalendarView({ meetings, holidays, today, selectedDay, s
             <div className="cal-grid">
               {WEEK.map((w, i) => <b key={w} className={i === 0 ? "sun" : i === 6 ? "sat" : ""}>{w}</b>)}
               {cells.map(d => {
-                const iso = toIsoDate(d), out = d.getMonth() !== mo, count = countByDate.get(iso) ?? 0, hol = holidayOf(iso);
+                const iso = toIsoDate(d), out = d.getMonth() !== mo, list = meetingsByDate.get(iso) ?? [], count = list.length, hol = holidayOf(iso);
                 const cls = ["cal-day", out ? "out" : d.getDay() === 0 ? "sun" : d.getDay() === 6 ? "sat" : "", hol && !out ? `hol-${hol}` : "", !out && count > 0 ? "has-mtg" : "",
                   !out && dueDates.has(iso) ? "due" : "", iso === today ? "today" : "", !out && !mode && iso === selectedDay ? "selected" : ""].filter(Boolean).join(" ");
-                return <button key={iso} className={cls} disabled={out} onClick={() => clickDay(iso)} title={mode ? undefined : iso === selectedDay ? "絞り込みを解除" : "この日の会議で絞り込む"}>
+                return <button key={iso} className={cls} disabled={out} onClick={() => clickDay(iso)} title={out ? undefined : dayTitle(iso, list)}>
                   <span>{d.getDate()}</span>
-                  {!out && count > 0 && <em>{count}件</em>}
+                  {!out && count > 0 && <i className="mtg-dots" aria-label={`会議${count}件`}>{Array.from({ length: Math.min(count, MAX_DOTS) }, (_, k) => <b key={k}/>)}{count > MAX_DOTS && <em>+</em>}</i>}
                   {iso === today && <small>今日</small>}
                 </button>;
               })}
