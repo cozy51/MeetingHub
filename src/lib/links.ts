@@ -58,6 +58,16 @@ export function detectLink(url: string): { title: string; type: LinkType } {
   return { title: typeof rule.title === "function" ? rule.title(u, path) : rule.title, type: rule.type };
 }
 
+/** Outlook のメールへのリンク（案内メール）か */
+export function isMailUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return host(u, "outlook.cloud.microsoft", "outlook.office.com", "outlook.office365.com", "outlook.live.com") && /\/mail\//i.test(u.pathname);
+  } catch { return false; }
+}
+/** テキスト中の最初のメールリンクを返す */
+export const mailUrlFromText = (text: string) => extractUrls(text).find(isMailUrl);
+
 /** クリップボードのテキストを読む（未対応・拒否時は貼り付け用の入力欄にフォールバック） */
 export async function readClipboardText(): Promise<string> {
   try {
@@ -66,9 +76,9 @@ export async function readClipboardText(): Promise<string> {
   return window.prompt("クリップボードを読み取れませんでした。URL を貼り付けてください") ?? "";
 }
 
-/** クリップボード内の URL から、既存リンクと重複しない新しいリンクを作る */
+/** クリップボード内の URL から、既存リンクと重複しない新しいリンクを作る（メールリンクは案内メール欄で扱うため除く） */
 export function linksFromText(text: string, existing: MeetingLink[]): MeetingLink[] {
-  return extractUrls(text).filter(url => !existing.some(l => l.url === url)).map(url => ({ id: crypto.randomUUID(), url, ...detectLink(url) }));
+  return extractUrls(text).filter(url => !isMailUrl(url) && !existing.some(l => l.url === url)).map(url => ({ id: crypto.randomUUID(), url, ...detectLink(url) }));
 }
 
 // 表示順：Teams参加 → CanvaDoc → その他（登録順）→ Notta → Googleドライブ → Teamsまとめ
