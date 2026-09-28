@@ -6,7 +6,10 @@ export interface MeetingTask { id: string; title: string; completed: boolean; du
 export interface Category { id: string; name: string; color: string }
 export interface Meeting {
   id: string; date: string; startTime?: string; endTime?: string; place: Place; category: string; title: string; important: boolean;
-  memo: string; tags: string[]; links: MeetingLink[]; tasks: MeetingTask[]; icsUid?: string; createdAt: string; updatedAt: string;
+  memo: string;
+  /** 案内メール（Outlook などのメールへのリンク URL） */
+  inviteMail?: string;
+  tags: string[]; links: MeetingLink[]; tasks: MeetingTask[]; icsUid?: string; createdAt: string; updatedAt: string;
 }
 export type HolidayKind = "self" | "company";
 export interface Holiday { date: string; kind: HolidayKind }

@@ -38,3 +38,10 @@ button.link-chip{font-family:inherit;cursor:pointer}.chip-count{display:inline-g
 .memo-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:650;color:#7a5a12;background:#fff7e0;border:1px solid #f1dc9e;border-radius:10px;padding:2px 8px;white-space:nowrap;cursor:help}
 .mtg-dots{display:flex;align-items:center;justify-content:center;gap:2px;height:7px;font-style:normal}.mtg-dots b{width:5px;height:5px;border-radius:50%;background:#2563eb}.mtg-dots em{font-style:normal;font-size:9px;font-weight:800;line-height:1;color:#2563eb;background:none;padding:0;margin-left:1px}.cal-day.today .mtg-dots b{background:#8a4b00}.cal-day.today .mtg-dots em{color:#8a4b00;background:none}
 .month-card h3{font-size:21px;font-weight:750;color:#172033;align-items:baseline;gap:4px;font-variant-numeric:tabular-nums}.month-card h3 small{font-size:13px;font-weight:650;color:#697386;margin-right:2px}.month-card h3 span{align-self:center;margin-left:6px}
+
+.mail-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:650;color:#0f6b5c;background:#e8f7f3;border:1px solid #b5e3d7;border-radius:10px;padding:2px 8px;white-space:nowrap;text-decoration:none}
+.mail-badge:hover{background:#d4f0e8;border-color:#86cfbd}
+.link-card>span.mail{background:#e8f7f3;color:#0f6b5c}
+.mail-input{display:flex;gap:8px}
+.mail-input input{flex:1;min-width:0}
+.mail-input .button{flex:0 0 auto;white-space:nowrap}
