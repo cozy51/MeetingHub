@@ -34,6 +34,6 @@ export function Countdown({ meeting: m }: { meeting: Meeting }) {
   const end = m.endTime ? new Date(`${m.date}T${m.endTime}:00`).getTime() : undefined;
   const t = now.getTime();
   if (t < start) return <span className="countdown upcoming"><i>開催前</i>開始まで <b>{duration(start - t)}</b></span>;
-  if (end !== undefined && t < end) return <span className="countdown live"><i>開催中</i>残り <b>{duration(end - t)}</b></span>;
+  if (end !== undefined && t < end) return <span className="countdown live"><i>開催中</i>残り <b>{duration(end - t)}</b>（{Math.floor((t - start) / (end - start) * 100)}%）</span>;
   return <span className="countdown ended"><i>{end === undefined ? "開始済み" : "終了"}</i></span>;
 }
