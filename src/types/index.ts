@@ -13,5 +13,5 @@ export interface Meeting {
 }
 export type HolidayKind = "self" | "company";
 export interface Holiday { date: string; kind: HolidayKind }
-export type View = "all" | "yesterday" | "today" | "tomorrow" | "week" | "nextWeek" | "tasks" | "incomplete" | "important" | "categories" | "settings";
+export type View = "all" | "yesterday" | "today" | "tomorrow" | "lastWeek" | "week" | "nextWeek" | "tasks" | "incomplete" | "important" | "categories" | "settings";
 export interface Filters { category: string; place: string; from: string; to: string; important: boolean; hasTasks: boolean; incomplete: boolean }
