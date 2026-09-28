@@ -9,6 +9,8 @@ export interface Meeting {
   memo: string;
   /** 案内メール（Outlook などのメールへのリンク URL） */
   inviteMail?: string;
+  /** 手動で終了にした日時（ISO）。予定より早く終わった会議を「終了」として扱う */
+  endedAt?: string;
   tags: string[]; links: MeetingLink[]; tasks: MeetingTask[]; icsUid?: string; createdAt: string; updatedAt: string;
 }
 export type HolidayKind = "self" | "company";
