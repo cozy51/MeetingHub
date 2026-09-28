@@ -96,11 +96,11 @@ export default function CalendarView({ meetings, holidays, today, selectedDay, s
               {cells.map(d => {
                 const iso = toIsoDate(d), out = d.getMonth() !== mo, list = meetingsByDate.get(iso) ?? [], count = list.length, hol = holidayOf(iso);
                 const cls = ["cal-day", out ? "out" : d.getDay() === 0 ? "sun" : d.getDay() === 6 ? "sat" : "", hol && !out ? `hol-${hol}` : "", !out && count > 0 ? "has-mtg" : "",
-                  !out && dueDates.has(iso) ? "due" : "", iso === today ? "today" : "", !out && !mode && iso === selectedDay ? "selected" : ""].filter(Boolean).join(" ");
+                  !out && dueDates.has(iso) ? "due" : "", iso === today ? (out ? "today-out" : "today") : "", !out && !mode && iso === selectedDay ? "selected" : ""].filter(Boolean).join(" ");
                 return <button key={iso} className={cls} disabled={out} onClick={() => clickDay(iso)} title={out ? undefined : dayTitle(iso, list)}>
                   <span>{d.getDate()}</span>
                   {!out && count > 0 && <i className="mtg-dots" aria-label={`会議${count}件`}>{Array.from({ length: Math.min(count, MAX_DOTS) }, (_, k) => <b key={k}/>)}{count > MAX_DOTS && <em>+</em>}</i>}
-                  {iso === today && <small>今日</small>}
+                  {iso === today && !out && <small>今日</small>}
                 </button>;
               })}
             </div>
