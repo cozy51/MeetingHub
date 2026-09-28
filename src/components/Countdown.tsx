@@ -26,14 +26,14 @@ export function NowClock() {
   return <span className="now-clock" aria-live="off">現在 <b>{pad(now.getHours())}:{pad(now.getMinutes())}:{pad(now.getSeconds())}</b></span>;
 }
 
-/** 会議の開始までの残り時間（開催中は終了までの残り、終了後は「終了」） */
+/** 会議のステータス（開催前・開催中・終了）と、開始まで／終了までの残り時間 */
 export function Countdown({ meeting: m }: { meeting: Meeting }) {
   const now = useNow();
   if (!now || !m.startTime) return null;
   const start = new Date(`${m.date}T${m.startTime}:00`).getTime();
   const end = m.endTime ? new Date(`${m.date}T${m.endTime}:00`).getTime() : undefined;
   const t = now.getTime();
-  if (t < start) return <span className="countdown upcoming">開始まで <b>{duration(start - t)}</b></span>;
-  if (end !== undefined && t < end) return <span className="countdown live">開催中 残り <b>{duration(end - t)}</b></span>;
-  return <span className="countdown ended">{end === undefined ? "開始済み" : "終了"}</span>;
+  if (t < start) return <span className="countdown upcoming"><i>開催前</i>開始まで <b>{duration(start - t)}</b></span>;
+  if (end !== undefined && t < end) return <span className="countdown live"><i>開催中</i>残り <b>{duration(end - t)}</b></span>;
+  return <span className="countdown ended"><i>{end === undefined ? "開始済み" : "終了"}</i></span>;
 }
