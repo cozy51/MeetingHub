@@ -11,10 +11,14 @@ const KIND_LABEL: Record<HolidayKind, string> = { self: "自分の休み", compa
 type Props = {
   meetings: Meeting[]; holidays: Holiday[]; today: string; selectedDay: string;
   setHolidays: (h: Holiday[]) => void; onOpen: (m: Meeting) => void; onSelectDay: (date: string) => void;
+  /** サイドバーで選んだビューの期間（今日・今週など）。該当日を強調表示する */
+  range?: { from: string; to: string; label: string };
+  /** ビューを選び直すたびに変わる値。変わったら range の月（期間がなければ今月）を中央に戻す */
+  focusKey?: number;
 };
 
 /** 全ビュー共通で表示する3か月分のカレンダー（中央が基準月、初期表示は今月）。前後の月へ制限なく移動でき、日付クリックで一覧をその日に絞り込む */
-export default function CalendarView({ meetings, holidays, today, selectedDay, setHolidays, onOpen, onSelectDay }: Props) {
+export default function CalendarView({ meetings, holidays, today, selectedDay, setHolidays, onOpen, onSelectDay, range, focusKey }: Props) {
   const [mode, setMode] = useState<HolidayKind | null>(null);
   // 中央に表示する月の、今月からのずれ（0 = 今月が中央）
   const [offset, setOffset] = useState(0);
@@ -25,6 +29,12 @@ export default function CalendarView({ meetings, holidays, today, selectedDay, s
     const d = parseIsoDate(selectedDay), diff = (d.getFullYear() - base.getFullYear()) * 12 + d.getMonth() - base.getMonth();
     setOffset(o => Math.abs(diff - o) <= 1 ? o : diff);
   }, [selectedDay]); // eslint-disable-line react-hooks/exhaustive-deps
+  // ビューが選ばれたら、その期間の開始月（期間がなければ今月）が中央に来るように移動する
+  useEffect(() => {
+    if (!focusKey) return;
+    const d = parseIsoDate(range?.from ?? today);
+    setOffset((d.getFullYear() - base.getFullYear()) * 12 + d.getMonth() - base.getMonth());
+  }, [focusKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const months = [-1, 0, 1].map(i => new Date(base.getFullYear(), base.getMonth() + offset + i, 1));
   const monthValue = `${months[1].getFullYear()}-${String(months[1].getMonth() + 1).padStart(2, "0")}`;
   const jumpTo = (value: string) => {
@@ -35,6 +45,9 @@ export default function CalendarView({ meetings, holidays, today, selectedDay, s
   const rangeLabel = months[0].getFullYear() === last.getFullYear()
     ? `${months[0].getFullYear()}年${months[0].getMonth() + 1}月〜${last.getMonth() + 1}月`
     : `${months[0].getFullYear()}年${months[0].getMonth() + 1}月〜${last.getFullYear()}年${last.getMonth() + 1}月`;
+
+  const md = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8))}（${weekdayLabel(iso)}）`;
+  const rangeText = range && (range.from === range.to ? md(range.from) : `${md(range.from)}〜${md(range.to)}`);
 
   const meetingsByDate = useMemo(() => {
     const map = new Map<string, Meeting[]>();
@@ -64,7 +77,7 @@ export default function CalendarView({ meetings, holidays, today, selectedDay, s
   return (
     <section className="calendar-board">
       <div className="calendar-head">
-        <div><p className="eyebrow">{rangeLabel}</p><h2>3-Month View</h2></div>
+        <div><p className="eyebrow">{rangeLabel}</p><h2>3-Month View</h2>{range && <p className="view-range"><i/>{range.label}：{rangeText}</p>}</div>
         <div className="calendar-nav">
           <button className="icon-btn" onClick={() => setOffset(o => o - 1)} title="前の月" aria-label="前の月"><ChevronLeft size={18}/></button>
           <button className="button secondary" onClick={() => setOffset(0)} disabled={offset === 0}>今月</button>
@@ -96,7 +109,7 @@ export default function CalendarView({ meetings, holidays, today, selectedDay, s
               {cells.map(d => {
                 const iso = toIsoDate(d), out = d.getMonth() !== mo, list = meetingsByDate.get(iso) ?? [], count = list.length, hol = holidayOf(iso);
                 const cls = ["cal-day", out ? "out" : d.getDay() === 0 ? "sun" : d.getDay() === 6 ? "sat" : "", hol && !out ? `hol-${hol}` : "", !out && count > 0 ? "has-mtg" : "",
-                  !out && dueDates.has(iso) ? "due" : "", iso === today ? (out ? "today-out" : "today") : "", !out && !mode && iso === selectedDay ? "selected" : ""].filter(Boolean).join(" ");
+                  !out && dueDates.has(iso) ? "due" : "", iso === today ? (out ? "today-out" : "today") : "", !out && !mode && iso === selectedDay ? "selected" : "", !out && range && iso >= range.from && iso <= range.to ? "in-range" : ""].filter(Boolean).join(" ");
                 return <button key={iso} className={cls} disabled={out} onClick={() => clickDay(iso)} title={out ? undefined : dayTitle(iso, list)}>
                   <span>{d.getDate()}</span>
                   {!out && count > 0 && <i className="mtg-dots" aria-label={`会議${count}件`}>{Array.from({ length: Math.min(count, MAX_DOTS) }, (_, k) => <b key={k}/>)}{count > MAX_DOTS && <em>+</em>}</i>}
