@@ -26,6 +26,8 @@ export function NowClock() {
   return <span className="now-clock" aria-live="off">現在 <b>{pad(now.getHours())}:{pad(now.getMinutes())}:{pad(now.getSeconds())}</b></span>;
 }
 
+const SOON_MS = 15 * 60 * 1000;
+
 /** 会議のステータス（開催前・開催中・終了）と、開始まで／終了までの残り時間。onEnd があれば開催中の会議を手動で終了にできる */
 export function Countdown({ meeting: m, onEnd }: { meeting: Meeting; onEnd?: (endedAt: string | undefined) => void }) {
   const now = useNow();
@@ -36,7 +38,8 @@ export function Countdown({ meeting: m, onEnd }: { meeting: Meeting; onEnd?: (en
   // カードのクリック（詳細を開く）に伝わらないようにする
   const act = (endedAt: string | undefined) => (e: React.SyntheticEvent) => { e.stopPropagation(); onEnd?.(endedAt); };
   const stop = (e: React.KeyboardEvent) => e.stopPropagation();
-  if (t < start) return <span className="countdown upcoming"><i>開催前</i>開始まで <b>{duration(start - t)}</b></span>;
+  // 開始15分前を切ったら「もうすぐ」として黄色系で強調する
+  if (t < start) return <span className={`countdown upcoming${start - t <= SOON_MS ? " soon" : ""}`}><i>開催前</i>開始まで <b>{duration(start - t)}</b></span>;
   const ended = m.endedAt && new Date(m.endedAt).getTime() >= start ? new Date(m.endedAt) : undefined;
   if (ended) return <span className="countdown ended" title={`${pad(ended.getHours())}:${pad(ended.getMinutes())} に手動で終了`}><i>終了</i>{onEnd && (end === undefined || t < end) && <button type="button" className="countdown-action" onClick={act(undefined)} onKeyDown={stop} title="終了を取り消して開催中に戻す">戻す</button>}</span>;
   if (end !== undefined && t < end) return <span className="countdown live"><i>開催中</i>残り <b>{duration(end - t)}</b>（{Math.floor((t - start) / (end - start) * 100)}%）{onEnd && <button type="button" className="countdown-action" onClick={act(now.toISOString())} onKeyDown={stop} title="会議が早く終わったので終了にする">終了</button>}</span>;
