@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Meeting } from "@/types";
 
 /** 1秒ごとに現在時刻を返す（サーバー描画との不一致を避けるため、マウント後に開始する） */
-function useNow() {
+export function useNow() {
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
     setNow(new Date());
