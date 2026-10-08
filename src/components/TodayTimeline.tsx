@@ -19,7 +19,7 @@ function statusOf(m: Meeting, now: Date | null): Status {
 }
 const LABEL: Record<Status, string> = { upcoming: "開催前", soon: "まもなく", live: "開催中", ended: "終了" };
 
-/** 今日の会議を時間軸に並べたガントチャート（現在時刻は赤い縦線）。重なり判定は絞り込み前の全会議（all）で行う。バーをクリックすると会議の詳細を開く */
+/** 今日の会議を時間軸に並べたガントチャート（現在時刻は緑の縦線）。重なり判定は絞り込み前の全会議（all）で行う。バーをクリックすると会議の詳細を開く */
 export default function TodayTimeline({ meetings, all, date, categories, onOpen }: { meetings: Meeting[]; all: Meeting[]; date: string; categories: Category[]; onOpen: (m: Meeting) => void }) {
   const now = useNow();
   const timed = meetings.filter(m => m.date === date && m.startTime).sort((a, b) => a.startTime!.localeCompare(b.startTime!));
