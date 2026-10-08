@@ -18,7 +18,7 @@ export class DriveAuthError extends Error {}
 interface TokenResponse { access_token?: string; expires_in?: number; error?: string; error_description?: string }
 interface TokenClient { requestAccessToken(o?: { prompt?: string }): void }
 interface GoogleOAuth2 {
-  initTokenClient(c: { client_id: string; scope: string; hint?: string; callback: (r: TokenResponse) => void; error_callback?: (e: { type: string }) => void }): TokenClient;
+  initTokenClient(c: { client_id: string; scope: string; include_granted_scopes?: boolean; hint?: string; callback: (r: TokenResponse) => void; error_callback?: (e: { type: string }) => void }): TokenClient;
   revoke(token: string, done?: () => void): void;
 }
 declare global { interface Window { google?: { accounts: { oauth2: GoogleOAuth2 } } } }
@@ -69,6 +69,9 @@ export async function signIn(prompt: "" | "consent" | "select_account" = ""): Pr
     const client = window.google!.accounts.oauth2.initTokenClient({
       client_id: GOOGLE_CLIENT_ID,
       scope: SCOPE,
+      // 同じクライアント ID で過去に許可した別スコープ（YouTube 等）を合算すると
+      // 「同時に要求できないスコープ」として 400 invalid_request になるため、このアプリのスコープだけを要求する
+      include_granted_scopes: false,
       // 前回のアカウントを指定し、アカウント選択を省略する
       hint: storage.get(HINT_KEY) ?? undefined,
       callback: r => {
