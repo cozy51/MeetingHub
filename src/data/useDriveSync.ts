@@ -33,6 +33,8 @@ export function useDriveSync({ ready, snapshot, serialize, apply }: {
   const prevSnapshot = useRef<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const busy = useRef(false), connecting = useRef(false), autoTried = useRef(false);
+  // ローカル変更のたびに増える番号。保存中に変更があったかどうかの判定に使う
+  const revision = useRef(0);
   const serializeRef = useRef(serialize), applyRef = useRef(apply);
   serializeRef.current = serialize; applyRef.current = apply;
 
@@ -51,18 +53,34 @@ export function useDriveSync({ ready, snapshot, serialize, apply }: {
     done(meta);
   };
 
+  const schedulePush = useCallback(() => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => void pushRef.current(), SAVE_DELAY);
+  }, []);
+
   const push = useCallback(async (force = false) => {
-    if (busy.current || !state.current.connected || (!force && !state.current.dirty)) return;
+    if (!state.current.connected || (!force && !state.current.dirty)) return;
+    // 同期中に保存予約が来た場合は捨てずに、少し後でやり直す
+    if (busy.current) { schedulePush(); return; }
     if (!drive.hasValidToken()) { setStatus("reauth"); setMessage("Google Drive への再接続が必要です"); return; }
     busy.current = true; setStatus("syncing");
+    const rev = revision.current;
+    let uploaded = false;
     try {
       const { fileId, remoteModified } = state.current;
-      if (!fileId) { done(await drive.createFile(serializeRef.current())); return; }
-      const meta = await drive.getFileMeta(fileId);
-      if (!force && meta.modifiedTime !== remoteModified && confirm("Google Drive 上のデータが他の端末で更新されています。\nOK：Drive の内容を読み込む（この端末の未保存の変更は破棄）\nキャンセル：この端末の内容で上書き保存")) { await pullFrom(meta); return; }
-      done(await drive.updateFile(fileId, serializeRef.current()));
+      if (!fileId) { done(await drive.createFile(serializeRef.current())); uploaded = true; }
+      else {
+        const meta = await drive.getFileMeta(fileId);
+        if (!force && meta.modifiedTime !== remoteModified && confirm("Google Drive 上のデータが他の端末で更新されています。\nOK：Drive の内容を読み込む（この端末の未保存の変更は破棄）\nキャンセル：この端末の内容で上書き保存")) await pullFrom(meta);
+        else { done(await drive.updateFile(fileId, serializeRef.current())); uploaded = true; }
+      }
     } catch (e) { fail(e); } finally { busy.current = false; }
-  }, [fail]);
+    // 保存中に行われた変更（休みの連続登録など）は今回の保存に含まれていないので、続けて保存する
+    if (uploaded && revision.current !== rev) { update({ dirty: true }); schedulePush(); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fail, schedulePush]);
+  const pushRef = useRef(push);
+  pushRef.current = push;
 
   /** Drive から最新を取得（初回接続・再接続・画面復帰時）。ローカルを保存すべきなら true を返す */
   const reconcile = async (): Promise<boolean> => {
@@ -129,11 +147,11 @@ export function useDriveSync({ ready, snapshot, serialize, apply }: {
     if (!ready) return;
     if (prevSnapshot.current === null || prevSnapshot.current === snapshot) { prevSnapshot.current = snapshot; return; }
     prevSnapshot.current = snapshot;
+    revision.current++;
     update({ dirty: true });
     if (!state.current.connected) return;
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => void push(), SAVE_DELAY);
-  }, [snapshot, ready, push]);
+    schedulePush();
+  }, [snapshot, ready, schedulePush]);
 
   // 画面に戻ったとき、他端末での更新を取り込む
   useEffect(() => {
