@@ -100,3 +100,13 @@ button.tl-label:hover b{color:var(--blue);text-decoration:underline}
 .meeting-table td>a{color:var(--blue)}
 .meeting-table .tasks-cell{min-width:200px;max-width:320px}.meeting-table .tasks-cell div{display:flex;gap:5px;align-items:flex-start}.meeting-table .tasks-cell div+div{margin-top:4px}.meeting-table .tasks-cell svg{flex:none;margin-top:2px;color:#a0a8b6}.meeting-table .tasks-cell .done span{color:#8a93a3;text-decoration:line-through}.meeting-table .tasks-cell .done svg{color:#26834c}.meeting-table .tasks-cell small{margin-left:6px;color:#a56100;white-space:nowrap}
 @media(max-width:620px){.table-scroll{max-height:none}}
+/* Google Drive 未接続（ログアウト）時は画面全体を暖色系にして状態を目立たせる */
+.app-shell.signed-out{background:#fdf0dc;box-shadow:inset 0 4px 0 #f59e0b}
+.app-shell.signed-out main{background:linear-gradient(180deg,#fde7c4 0,#fdf0dc 260px)}
+.app-shell.signed-out header{background:#fff6e6;border-bottom-color:#f3d39a;box-shadow:inset 0 4px 0 #f59e0b}
+.app-shell.signed-out .sidebar{background:#fff6e6;border-right-color:#f3d39a;box-shadow:inset 0 4px 0 #f59e0b}
+.app-shell.signed-out .sidebar nav,.app-shell.signed-out .sidebar-foot{border-color:#f3dcb0}
+.app-shell.signed-out .sidebar nav button:hover{background:#fdebcd}
+.app-shell.signed-out .search{background:#fdf0dc}
+.app-shell.signed-out .drive-notice{background:#fff3d6;border-color:#f0b860;box-shadow:0 4px 14px #d97a0626}
+.app-shell.signed-out .drive-notice.error{background:#fff0f1;border-color:#f3a0aa}
