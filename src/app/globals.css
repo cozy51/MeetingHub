@@ -110,3 +110,4 @@ button.tl-label:hover b{color:var(--blue);text-decoration:underline}
 .app-shell.signed-out .search{background:#fdf0dc}
 .app-shell.signed-out .drive-notice{background:#fff3d6;border-color:#f0b860;box-shadow:0 4px 14px #d97a0626}
 .app-shell.signed-out .drive-notice.error{background:#fff0f1;border-color:#f3a0aa}
+.detail-title{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.detail-title h2{margin:15px 0}.copy-title{display:inline-flex;align-items:center;gap:5px;border:1px solid #d6e2f6;background:#f5f8fe;color:#2460c4;border-radius:14px;height:28px;padding:0 11px;font-size:12px;font-weight:650;white-space:nowrap}.copy-title:hover{background:#e6effd;border-color:#9dbcf0}.copy-title.copied{color:#26834c;background:#e7f8ed;border-color:#b5e3c6}
