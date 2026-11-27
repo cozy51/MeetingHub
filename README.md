@@ -1,15 +1,35 @@
 # Meeting Hub
 
-Meeting Hub は、Teams 会議、1on1、定例会などの記録と、それに紐づく資料・メモ・自分のタスクを一か所で管理する Web アプリです。会議一覧、全文検索、複合フィルター、タスク集約、詳細・編集画面を備え、データは Google Drive の指定フォルダに保存します（ブラウザの `localStorage` はオフライン用のキャッシュ）。
+Meeting Hub は、Teams 会議、1on1、定例会などの記録と、それに紐づく資料・メモ・自分のタスクを一か所で管理する Web アプリです。会議一覧、全文検索、複合フィルター、タスク集約、詳細・編集画面を備え、データは Cloudflare D1 に保存し、Cloudflare Workers で配信します（ブラウザの `localStorage` はオフライン用のキャッシュ）。
 
-## 起動方法
+## 構成
+
+| 役割 | 使うもの |
+| --- | --- |
+| 画面 | Next.js を静的出力（`out/`）し、Cloudflare Workers の静的アセットとして配信 |
+| API | `worker/index.ts`（`/api/*` だけ Worker で処理） |
+| データ | Cloudflare D1（データベース名 `meeting-hub`、スキーマは `migrations/`） |
+| 認証 | Cloudflare Access（Worker 側で Access の JWT を検証） |
+
+## ローカル開発
 
 ```bash
 npm install
+echo 'DEV_AUTH_BYPASS=1' > .dev.vars   # ローカルでは Access の検証を省略する（本番では設定しない）
+npm run db:migrate:local               # ローカルの D1 にテーブルを作成
+```
+
+画面を編集しながら開発する場合は、2 つのターミナルで次を実行し、`http://localhost:3000` を開きます（`/api/*` は自動で 8787 番へ転送されます）。
+
+```bash
+npm run dev:api
+```
+
+```bash
 npm run dev
 ```
 
-`http://localhost:3000` を開いてください。本番ビルドは `npm run build`、起動は `npm start` です。
+本番と同じ構成で確認する場合は `npm run preview`（`http://localhost:8787`）を使います。型チェックは `npm run typecheck` です。
 
 ## 主な機能
 
@@ -25,42 +45,47 @@ npm run dev
 - Canva スプレッドシートから移行するための CSV インポート（年月日、場所、分類、議題、リンクメモ、メモ、自分タスク、Teamsリンク）
 - デスクトップ・モバイル対応
 
-## Google Drive への保存
+## Cloudflare へのデプロイ
 
-データはフォルダ ID で指定した Google Drive フォルダ内の `meeting-hub-data.json` に保存されます。既定の保存先は次のフォルダです。
+### 初回セットアップ（1 回だけ）
 
-- https://drive.google.com/drive/folders/1PY_kbloM5WmS6EL12vL5cnT4_J79mubf
+1. **D1 データベース**: `meeting-hub` を作成し、ID を `wrangler.jsonc` の `database_id` に設定します（設定済み）。
+2. **Worker の作成**: ダッシュボードの「Workers & Pages → アプリケーションを作成 → Git リポジトリをインポート」で本リポジトリを選び、次のように設定します。
+   - プロジェクト名: `meeting-hub`（`wrangler.jsonc` の `name` と同じにする）
+   - ビルド コマンド: `npm run build`
+   - デプロイ コマンド: `npx wrangler d1 migrations apply meeting-hub --remote && npx wrangler deploy`
+3. **Cloudflare Access**: デプロイ後、Worker の「設定 → ドメインとルート」で `workers.dev` の Cloudflare Access を有効にし、許可するメールアドレス（またはドメイン）をポリシーに設定します。
+4. **Access の値を設定**: Zero Trust の「Access → アプリケーション」で該当アプリの **Application Audience (AUD) タグ** を、「設定」で **チーム ドメイン**（`<チーム名>.cloudflareaccess.com`）を確認し、`wrangler.jsonc` の `vars` の `ACCESS_AUD`・`ACCESS_TEAM_DOMAIN` に設定してデプロイします。どちらも秘密情報ではありません。
 
-### 初回セットアップ（管理者が 1 回だけ）
+`ACCESS_TEAM_DOMAIN`・`ACCESS_AUD` が未設定の間、API は 503 を返し、データは読み書きされません（画面には「サーバーの設定が完了していません」と表示）。`wrangler deploy` は `wrangler.jsonc` の `vars` でダッシュボード上の変数を上書きするため、値は必ず `wrangler.jsonc` に書いてください。
 
-1. [Google Cloud Console](https://console.cloud.google.com/) でプロジェクトを作成（または既存のものを選択）します。
-2. 「API とサービス」→「ライブラリ」で **Google Drive API** を有効にします。
-3. 「OAuth 同意画面」を構成します。社内の Google Workspace で使う場合はユーザーの種類を「内部」にします。スコープに `https://www.googleapis.com/auth/drive` を追加します。
-4. 「認証情報」→「認証情報を作成」→「OAuth クライアント ID」で、種類を **ウェブ アプリケーション** にし、「承認済みの JavaScript 生成元」にアプリの URL（例：`http://localhost:3000`、本番の URL）を登録します。
-5. 作成されたクライアント ID を `.env.local` に設定します（`.env.example` を参照）。
+以降は `main` ブランチへの push で自動デプロイされます。手元からデプロイする場合は `npx wrangler login` の後に `npm run deploy` を実行します。
 
-```bash
-cp .env.example .env.local   # NEXT_PUBLIC_GOOGLE_CLIENT_ID を書き換える
-npm run dev
-```
+### 既存データ（Google Drive 版）からの移行
 
-保存先フォルダを変える場合は `NEXT_PUBLIC_DRIVE_FOLDER_ID` にフォルダ ID（フォルダ URL の `folders/` 以降）を設定します。利用するユーザーには、そのフォルダの **編集者** 権限が必要です。
+URL（オリジン）が変わるため、ブラウザ内のデータは引き継がれません。旧版の「設定 → JSONエクスポート」で保存したファイルを、新しい版の「設定 → JSONインポート」で読み込むと D1 に保存されます。
 
 ### 同期の仕組み
 
-- 画面の「接続」ボタンから Google アカウントでログインすると、フォルダ内の `meeting-hub-data.json` を読み込みます。ファイルがなければ現在のデータで作成します。
-- 編集すると約 1 秒後に自動で Drive へ保存します。状態はサイドバー下部に表示されます。
-- 他の端末で更新されていた場合は、保存前に「Drive の内容を読み込む／この端末の内容で上書き」を確認します。
-- ページを更新しても、アクセストークン（有効期限 1 時間）が有効なあいだは自動で再接続します。トークンは期限付きでブラウザに保持し、「接続を解除」で削除します。
-- 期限が切れた後は、画面を最初にクリック（またはキー操作）したときに自動でトークンを取り直します（前回の Google アカウントを自動選択）。ブラウザの仕様上、ログイン用ポップアップはユーザー操作なしには開けないためです。未保存の変更はブラウザ内に残り、再接続後に保存されます。
-- Drive のファイルの版の履歴から、以前の状態に戻すこともできます。
+- 「前回サーバーと一致した内容」と現在の内容を比べ、**変わった会議・分類・休みだけ**を約 1 秒後に送ります。サーバーの最新に未送信の変更を重ねて反映するので、別の端末で別の会議を編集していても上書きしません（同じ会議を両方で編集した場合は後から保存した方が残ります）。
+- 画面に戻ったとき、オンラインに戻ったとき、表示中は 1 分ごとにデータの版番号を確認し、他の端末の更新を取り込みます。
+- オフライン中の変更はブラウザに保持され、接続が戻ると自動で保存します。
+- Access のログインが切れた場合は「再ログイン」でページを再読み込みし、ログイン後に未保存の変更を保存します。
+- D1 の「タイム トラベル」機能で、過去 30 日以内の任意の時点にデータベースを戻せます。
 
 ## データ構造
 
 `Meeting` が基本情報を持ち、複数の `MeetingLink` と `MeetingTask` を配列として参照します。分類は `Category` として独立しており、表示名を後から追加できます。型定義は `src/types/index.ts` にあります。
 
-保存処理は `src/data/repository.ts`（ブラウザ内キャッシュ）と `src/data/googleDrive.ts`・`src/data/useDriveSync.ts`（Google Drive 同期）に集約し、UI コンポーネントが `localStorage` を直接操作しない構成です。初回のみ `src/data/seed.ts` のサンプルデータを投入します。
+保存処理は `src/data/repository.ts`（ブラウザ内キャッシュ）と `src/data/cloud.ts`・`src/data/useCloudSync.ts`・`src/data/changes.ts`（D1 との差分同期）に集約し、UI コンポーネントが `localStorage` を直接操作しない構成です。初回のみ `src/data/seed.ts` のサンプルデータを投入します。
 
-## バックエンドへの移行
+## D1 のスキーマ
 
-将来 Supabase、SharePoint、SQL Server などへ移行する場合は、`repository` と同じ責務（会議・分類の取得と保存、インポート・エクスポート）を持つ非同期アダプターを作成します。UI 側はリポジトリを Context またはデータ取得ライブラリ経由で注入することで、コンポーネントやドメイン型を変更せず段階的に移行できます。本番運用では認証、ワークスペース ID、楽観的更新、マイグレーションを追加してください。
+| テーブル | 内容 |
+| --- | --- |
+| `meetings` | 会議 1 件 = 1 行。本体は `data` 列（JSON）、`date`・`title` は検索用に別列でも保持 |
+| `categories` | 分類 1 件 = 1 行。`sort` が並び順 |
+| `holidays` | 休み（`date` と `kind` の組） |
+| `sync_meta` | データ全体の版番号（`revision`） |
+
+スキーマを変えるときは `migrations/` に `0002_*.sql` のように SQL を追加します。デプロイ時に未適用のものだけが実行されます。
