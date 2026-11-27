@@ -5,6 +5,7 @@ const LEGACY_LINK_TITLES:Record<string,string>={"Teams 会議に参加":"Teams�
 const migrate=(items:Meeting[]):Meeting[]=>items.map(m=>m.links.some(l=>l.title in LEGACY_LINK_TITLES)?{...m,links:m.links.map(l=>l.title in LEGACY_LINK_TITLES?{...l,title:LEGACY_LINK_TITLES[l.title]}:l)}:m);
 const MEETINGS="meeting-hub:meetings", CATEGORIES="meeting-hub:categories", HOLIDAYS="meeting-hub:holidays";
 export const repository = {
+  migrate,
   loadMeetings(): Meeting[] { const v=localStorage.getItem(MEETINGS); if(v) return migrate(JSON.parse(v)); this.saveMeetings(seedMeetings); return seedMeetings; },
   saveMeetings(items:Meeting[]) { localStorage.setItem(MEETINGS,JSON.stringify(items)); },
   loadCategories(): Category[] { const v=localStorage.getItem(CATEGORIES); if(v) return JSON.parse(v); this.saveCategories(defaultCategories); return defaultCategories; },

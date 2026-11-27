@@ -1,1 +1,35 @@
-{"name":"meeting-hub","version":"1.0.0","private":true,"scripts":{"dev":"next dev","build":"next build","start":"next start","lint":"eslint ."},"dependencies":{"@tailwindcss/postcss":"latest","lucide-react":"latest","next":"latest","react":"latest","react-dom":"latest","tailwindcss":"latest"},"devDependencies":{"@types/node":"latest","@types/react":"latest","@types/react-dom":"latest","eslint":"latest","eslint-config-next":"latest","typescript":"latest"}}
+{
+  "name": "meeting-hub",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "dev:api": "wrangler dev --port 8787",
+    "build": "next build",
+    "preview": "next build && wrangler dev",
+    "deploy": "next build && wrangler d1 migrations apply meeting-hub --remote && wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply meeting-hub --local",
+    "db:migrate": "wrangler d1 migrations apply meeting-hub --remote",
+    "typecheck": "tsc --noEmit && tsc -p worker/tsconfig.json",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@tailwindcss/postcss": "latest",
+    "jose": "^6.2.18",
+    "lucide-react": "latest",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "tailwindcss": "latest"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261127.1",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "eslint": "latest",
+    "eslint-config-next": "latest",
+    "typescript": "latest",
+    "wrangler": "^4.169.0"
+  }
+}

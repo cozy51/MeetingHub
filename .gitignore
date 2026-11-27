@@ -2,3 +2,6 @@ node_modules
 .next
 *.tsbuildinfo
 .env*.local
+out
+.wrangler
+.dev.vars*
