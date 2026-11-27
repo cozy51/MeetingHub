@@ -21,8 +21,8 @@
   "vars": {
     // Cloudflare Access のチーム ドメイン（例: your-team.cloudflareaccess.com）と
     // Access アプリケーションの Audience (AUD) タグ。未設定の間は API が 503 を返す
-    "ACCESS_TEAM_DOMAIN": "",
-    "ACCESS_AUD": ""
+    "ACCESS_TEAM_DOMAIN": "empty-fog-b24c.cloudflareaccess.com",
+    "ACCESS_AUD": "8b2d1b9750634f11255944bea171d428c7fe2b4b04a8dcf8ab44459fc06cde00"
   },
   "observability": { "enabled": true }
 }
