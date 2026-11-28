@@ -2,6 +2,10 @@
 
 Meeting Hub は、Teams 会議、1on1、定例会などの記録と、それに紐づく資料・メモ・自分のタスクを一か所で管理する Web アプリです。会議一覧、全文検索、複合フィルター、タスク集約、詳細・編集画面を備え、データは Cloudflare D1 に保存し、Cloudflare Workers で配信します（ブラウザの `localStorage` はオフライン用のキャッシュ）。
 
+## 公開 URL
+
+https://meeting-hub.cozy-apps.workers.dev （Cloudflare Access で保護。許可されたアカウントでログインすると表示されます）
+
 ## 構成
 
 | 役割 | 使うもの |
